@@ -1,10 +1,11 @@
-function App() {
+import LoginPage from "./pages/LoginPage";
 
-  return (
-    <>
-      <h1 className="bg-red-700 text-white p-2">Vite + React</h1>
-    </>
-  )
+function App() {
+	return (
+		<div className="bg-slate-800 h-screen text-white">
+			<LoginPage />
+		</div>
+	);
 }
 
-export default App
+export default App;
