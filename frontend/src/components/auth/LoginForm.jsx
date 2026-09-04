@@ -1,6 +1,6 @@
 const LoginForm = () => {
   return (
-    <div className="w-[30%] border h-screen">LoginForm</div>
+    <div className="w-[40%] h-screen">LoginForm</div>
   )
 }
 
