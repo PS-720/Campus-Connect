@@ -4,9 +4,10 @@ import CommunitiesPage from "./pages/CommunitiesPage";
 import NotesPage from "./pages/NotesPage";
 import EventsPage from "./pages/EventsPage";
 import MessagesPage from "./pages/MessagesPage";
+import AIStudyPage from "./pages/AIStudyPage";
 
 function App() {
-	const [activeTab, setActiveTab] = useState("Messages");
+	const [activeTab, setActiveTab] = useState("AI Study");
 
 	const handleNavigateTab = (tab) => {
 		setActiveTab(tab);
@@ -26,6 +27,10 @@ function App() {
 
 	if (activeTab === "Messages") {
 		return <MessagesPage onNavigateTab={handleNavigateTab} />;
+	}
+
+	if (activeTab === "AI Study") {
+		return <AIStudyPage onNavigateTab={handleNavigateTab} />;
 	}
 
 	return <HomePage onNavigateTab={handleNavigateTab} />;
