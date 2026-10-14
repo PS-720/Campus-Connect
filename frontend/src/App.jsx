@@ -7,9 +7,10 @@ import MessagesPage from "./pages/MessagesPage";
 import AIStudyPage from "./pages/AIStudyPage";
 import AISummarizerPage from "./pages/AISummarizerPage";
 import AIQuizPage from "./pages/AIQuizPage";
+import NotificationsPage from "./pages/NotificationsPage";
 
 function App() {
-	const [activeTab, setActiveTab] = useState("AI Quiz");
+	const [activeTab, setActiveTab] = useState("Notifications");
 
 	const handleNavigateTab = (tab) => {
 		setActiveTab(tab);
@@ -41,6 +42,10 @@ function App() {
 
 	if (activeTab === "AI Quiz") {
 		return <AIQuizPage onNavigateTab={handleNavigateTab} />;
+	}
+
+	if (activeTab === "Notifications") {
+		return <NotificationsPage onNavigateTab={handleNavigateTab} />;
 	}
 
 	return <HomePage onNavigateTab={handleNavigateTab} />;
