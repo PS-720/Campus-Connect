@@ -6,9 +6,10 @@ import EventsPage from "./pages/EventsPage";
 import MessagesPage from "./pages/MessagesPage";
 import AIStudyPage from "./pages/AIStudyPage";
 import AISummarizerPage from "./pages/AISummarizerPage";
+import AIQuizPage from "./pages/AIQuizPage";
 
 function App() {
-	const [activeTab, setActiveTab] = useState("AI Summarizer");
+	const [activeTab, setActiveTab] = useState("AI Quiz");
 
 	const handleNavigateTab = (tab) => {
 		setActiveTab(tab);
@@ -36,6 +37,10 @@ function App() {
 
 	if (activeTab === "AI Summarizer") {
 		return <AISummarizerPage onNavigateTab={handleNavigateTab} />;
+	}
+
+	if (activeTab === "AI Quiz") {
+		return <AIQuizPage onNavigateTab={handleNavigateTab} />;
 	}
 
 	return <HomePage onNavigateTab={handleNavigateTab} />;
