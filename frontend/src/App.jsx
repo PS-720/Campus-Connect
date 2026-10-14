@@ -9,9 +9,10 @@ import AISummarizerPage from "./pages/AISummarizerPage";
 import AIQuizPage from "./pages/AIQuizPage";
 import NotificationsPage from "./pages/NotificationsPage";
 import ProfilePage from "./pages/ProfilePage";
+import SettingsPage from "./pages/SettingsPage";
 
 function App() {
-	const [activeTab, setActiveTab] = useState("Profile");
+	const [activeTab, setActiveTab] = useState("Settings");
 
 	const handleNavigateTab = (tab) => {
 		setActiveTab(tab);
@@ -51,6 +52,15 @@ function App() {
 
 	if (activeTab === "Profile") {
 		return <ProfilePage onNavigateTab={handleNavigateTab} />;
+	}
+
+	if (activeTab === "Settings") {
+		return (
+			<SettingsPage
+				onNavigateTab={handleNavigateTab}
+				onLogout={() => handleNavigateTab("Home")}
+			/>
+		);
 	}
 
 	return <HomePage onNavigateTab={handleNavigateTab} />;
