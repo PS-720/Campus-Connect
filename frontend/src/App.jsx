@@ -2,9 +2,11 @@ import React, { useState } from "react";
 import HomePage from "./pages/HomePage";
 import CommunitiesPage from "./pages/CommunitiesPage";
 import NotesPage from "./pages/NotesPage";
+import EventsPage from "./pages/EventsPage";
+import MessagesPage from "./pages/MessagesPage";
 
 function App() {
-	const [activeTab, setActiveTab] = useState("Notes");
+	const [activeTab, setActiveTab] = useState("Messages");
 
 	const handleNavigateTab = (tab) => {
 		setActiveTab(tab);
@@ -16,6 +18,14 @@ function App() {
 
 	if (activeTab === "Notes") {
 		return <NotesPage onNavigateTab={handleNavigateTab} />;
+	}
+
+	if (activeTab === "Events") {
+		return <EventsPage onNavigateTab={handleNavigateTab} />;
+	}
+
+	if (activeTab === "Messages") {
+		return <MessagesPage onNavigateTab={handleNavigateTab} />;
 	}
 
 	return <HomePage onNavigateTab={handleNavigateTab} />;

@@ -124,7 +124,7 @@ const HomePage = ({ onNavigateTab }) => {
 					<div className="hidden lg:flex flex-col gap-6 w-80 shrink-0 sticky top-24 self-start">
 						{/* Upcoming Events */}
 						<UpcomingEvents
-							onSeeAll={() => console.log("See all events clicked")}
+							onSeeAll={() => onNavigateTab && onNavigateTab("Events")}
 						/>
 
 						{/* Join Communities */}

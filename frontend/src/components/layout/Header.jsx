@@ -1,6 +1,12 @@
 import React from "react";
 
-const Header = ({ title = "Home", subtitle = "What's happening on campus", user = { name: "Alex Chen", avatar: "A" } }) => {
+const Header = ({
+	title = "Home",
+	subtitle = "What's happening on campus",
+	user = { name: "Alex Chen", avatar: "A" },
+	searchValue = "",
+	onSearch,
+}) => {
 	return (
 		<header className="w-full bg-[#07080b]/90 backdrop-blur-md sticky top-0 z-20 py-4 px-6 sm:px-8 border-b border-[#141620] flex items-center justify-between gap-4">
 			{/* Title & Subtitle */}
@@ -22,6 +28,8 @@ const Header = ({ title = "Home", subtitle = "What's happening on campus", user 
 					</div>
 					<input
 						type="text"
+						value={searchValue}
+						onChange={(e) => onSearch && onSearch(e.target.value)}
 						placeholder="Search..."
 						className="bg-[#12141e] border border-[#1e202d] focus:border-[#7c3aed] focus:ring-1 focus:ring-[#7c3aed]/20 rounded-xl pl-10 pr-4 py-2 text-xs sm:text-sm text-white placeholder-[#50536c] outline-none w-56 md:w-72 transition-all duration-150"
 					/>
