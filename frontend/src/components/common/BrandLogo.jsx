@@ -1,10 +1,17 @@
 import React from "react";
 import logo from "../../assets/logo.svg";
 
-const BrandLogo = ({ className = "", collapsed = false }) => {
+const BrandLogo = ({
+	className = "",
+	iconSize = "w-10 h-10 p-2",
+	textSize = "text-lg",
+	showText = true,
+	collapsed = false,
+}) => {
 	return (
 		<div className={`flex items-center gap-3 font-bold select-none ${className}`}>
-			<div className="w-10 h-10 flex items-center justify-center rounded-xl bg-[#804bdf] shadow-lg shadow-purple-900/40 shrink-0 p-2.5">
+			<div
+				className={`flex items-center justify-center rounded-xl bg-[#804bdf] shadow-md shadow-purple-900/30 shrink-0 ${iconSize}`}>
 				<img
 					src={logo}
 					alt="CampusConnect Logo"
@@ -12,15 +19,10 @@ const BrandLogo = ({ className = "", collapsed = false }) => {
 				/>
 			</div>
 
-			{!collapsed && (
-				<div className="flex flex-col">
-					<span className="text-base font-bold text-white tracking-tight leading-tight">
-						CampusConnect
-					</span>
-					<span className="text-[11px] font-semibold text-[#8b5cf6] tracking-wider -mt-0.5">
-						AI
-					</span>
-				</div>
+			{showText && !collapsed && (
+				<h2 className={`${textSize} tracking-tight font-bold text-white`}>
+					CampusConnect <span className="text-[#8b5cf6]">AI</span>
+				</h2>
 			)}
 		</div>
 	);

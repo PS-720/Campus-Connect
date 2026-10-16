@@ -5,11 +5,27 @@ const TOKEN_KEY = "cc_token";
 
 /**
  * Register a new user account.
- * @param {{ name, email, password, university?, department?, yearOfStudy? }} data
+ * Handles payload mapping between UI form fields and backend model.
+ * @param {{ name?, fullName?, email, password, university?, department?, year?, yearOfStudy?, interests? }} data
  */
 export async function register(data) {
-  const response = await apiClient.post("/auth/register", data);
-  // response is already unwrapped: { success, message, data: AuthResponse }
+  let yearNumber = data.yearOfStudy;
+  if (!yearNumber && data.year) {
+    const match = String(data.year).match(/\d+/);
+    yearNumber = match ? parseInt(match[0], 10) : 1;
+  }
+
+  const payload = {
+    name: (data.name || data.fullName || "").trim(),
+    email: (data.email || "").trim(),
+    password: data.password,
+    university: (data.university || "Campus University").trim(),
+    department: (data.department || "Computer Science").trim(),
+    yearOfStudy: yearNumber || 1,
+    interests: Array.isArray(data.interests) ? data.interests : [],
+  };
+
+  const response = await apiClient.post("/auth/register", payload);
   _persistSession(response);
   return response.data;
 }
@@ -19,7 +35,11 @@ export async function register(data) {
  * @param {{ email, password }} credentials
  */
 export async function login(credentials) {
-  const response = await apiClient.post("/auth/login", credentials);
+  const payload = {
+    email: (credentials.email || "").trim(),
+    password: credentials.password,
+  };
+  const response = await apiClient.post("/auth/login", payload);
   _persistSession(response);
   return response.data;
 }
@@ -62,9 +82,11 @@ export function isAuthenticated() {
 // ─── Private Helpers ──────────────────────────────────────────────────────────
 
 function _persistSession(response) {
-  const { token, ...user } = response.data;
-  if (token) {
-    localStorage.setItem(TOKEN_KEY, token);
-    localStorage.setItem(AUTH_KEY, JSON.stringify(user));
+  if (response && response.data) {
+    const { token, ...user } = response.data;
+    if (token) {
+      localStorage.setItem(TOKEN_KEY, token);
+      localStorage.setItem(AUTH_KEY, JSON.stringify(user));
+    }
   }
 }
