@@ -22,9 +22,13 @@ public class Note {
     @Id
     private String id;
 
+    private String code;
+
     private String title;
 
     private String description;
+
+    private String department;
 
     @Indexed
     private String subject;
@@ -79,6 +83,22 @@ public class Note {
 
     public void setId(String id) {
         this.id = id;
+    }
+
+    public String getCode() {
+        return code;
+    }
+
+    public void setCode(String code) {
+        this.code = code;
+    }
+
+    public String getDepartment() {
+        return department;
+    }
+
+    public void setDepartment(String department) {
+        this.department = department;
     }
 
     public String getTitle() {

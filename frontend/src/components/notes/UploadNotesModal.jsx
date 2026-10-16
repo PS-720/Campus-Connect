@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { uploadNote } from "../../services/noteService";
 
 const UploadNotesModal = ({ isOpen, onClose, onUpload }) => {
 	const [title, setTitle] = useState("");
@@ -6,32 +7,50 @@ const UploadNotesModal = ({ isOpen, onClose, onUpload }) => {
 	const [department, setDepartment] = useState("Computer Science");
 	const [semester, setSemester] = useState("5th Sem");
 	const [pages, setPages] = useState("");
+	const [file, setFile] = useState(null);
 	const [fileName, setFileName] = useState("");
+	const [isSubmitting, setIsSubmitting] = useState(false);
+	const [error, setError] = useState(null);
 
 	if (!isOpen) return null;
 
-	const handleSubmit = (e) => {
+	const handleSubmit = async (e) => {
 		e.preventDefault();
 		if (!title.trim() || !code.trim()) return;
 
-		onUpload({
-			id: Date.now(),
-			code: code.toUpperCase(),
-			title,
-			department,
-			semester,
-			author: {
-				name: "Alex Chen",
-				avatarText: "A",
-				avatarBg: "bg-[#06b6d4]",
-			},
-			date: "Today",
-			rating: "5.0",
-			downloads: 0,
-			pages: pages || "12",
-		});
+		try {
+			setIsSubmitting(true);
+			setError(null);
 
-		onClose();
+			const formData = new FormData();
+			formData.append("code", code.trim().toUpperCase());
+			formData.append("title", title.trim());
+			formData.append("department", department);
+			formData.append("semester", semester);
+			if (pages) formData.append("pages", pages);
+			if (file) formData.append("file", file);
+
+			const newNote = await uploadNote(formData);
+
+			// Reset form
+			setTitle("");
+			setCode("");
+			setDepartment("Computer Science");
+			setSemester("5th Sem");
+			setPages("");
+			setFile(null);
+			setFileName("");
+
+			if (onUpload) {
+				onUpload(newNote);
+			}
+			onClose();
+		} catch (err) {
+			console.error("Failed to upload note:", err);
+			setError(err.message || "Failed to upload note. Please try again.");
+		} finally {
+			setIsSubmitting(false);
+		}
 	};
 
 	return (
@@ -45,6 +64,7 @@ const UploadNotesModal = ({ isOpen, onClose, onUpload }) => {
 					<button
 						type="button"
 						onClick={onClose}
+						disabled={isSubmitting}
 						className="text-[#71748d] hover:text-white p-1 rounded-lg transition-colors cursor-pointer">
 						<svg
 							className="w-5 h-5"
@@ -61,6 +81,13 @@ const UploadNotesModal = ({ isOpen, onClose, onUpload }) => {
 					</button>
 				</div>
 
+				{/* Error message */}
+				{error && (
+					<div className="p-3 bg-red-500/10 border border-red-500/20 text-red-400 text-xs rounded-xl">
+						{error}
+					</div>
+				)}
+
 				{/* Form */}
 				<form onSubmit={handleSubmit} className="flex flex-col gap-4">
 					{/* Course Code & Title */}
@@ -75,6 +102,7 @@ const UploadNotesModal = ({ isOpen, onClose, onUpload }) => {
 								value={code}
 								onChange={(e) => setCode(e.target.value)}
 								required
+								disabled={isSubmitting}
 								className="bg-[#141622] border border-[#23263a] rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-[#50536c] outline-none focus:border-[#7c3aed]"
 							/>
 						</div>
@@ -88,6 +116,7 @@ const UploadNotesModal = ({ isOpen, onClose, onUpload }) => {
 								value={title}
 								onChange={(e) => setTitle(e.target.value)}
 								required
+								disabled={isSubmitting}
 								className="bg-[#141622] border border-[#23263a] rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-[#50536c] outline-none focus:border-[#7c3aed]"
 							/>
 						</div>
@@ -102,6 +131,7 @@ const UploadNotesModal = ({ isOpen, onClose, onUpload }) => {
 							<select
 								value={department}
 								onChange={(e) => setDepartment(e.target.value)}
+								disabled={isSubmitting}
 								className="bg-[#141622] border border-[#23263a] rounded-xl px-3.5 py-2.5 text-xs text-white outline-none focus:border-[#7c3aed]">
 								<option value="Computer Science">Computer Science</option>
 								<option value="Electronics">Electronics</option>
@@ -117,6 +147,7 @@ const UploadNotesModal = ({ isOpen, onClose, onUpload }) => {
 							<select
 								value={semester}
 								onChange={(e) => setSemester(e.target.value)}
+								disabled={isSubmitting}
 								className="bg-[#141622] border border-[#23263a] rounded-xl px-3.5 py-2.5 text-xs text-white outline-none focus:border-[#7c3aed]">
 								<option value="1st Sem">1st Sem</option>
 								<option value="2nd Sem">2nd Sem</option>
@@ -157,10 +188,12 @@ const UploadNotesModal = ({ isOpen, onClose, onUpload }) => {
 							<input
 								type="file"
 								className="hidden"
+								disabled={isSubmitting}
 								onChange={(e) => {
 									if (e.target.files?.[0]) {
+										setFile(e.target.files[0]);
 										setFileName(e.target.files[0].name);
-										setPages("24");
+										if (!pages) setPages("24");
 									}
 								}}
 							/>
@@ -172,13 +205,18 @@ const UploadNotesModal = ({ isOpen, onClose, onUpload }) => {
 						<button
 							type="button"
 							onClick={onClose}
+							disabled={isSubmitting}
 							className="px-4 py-2 rounded-xl text-xs font-semibold text-[#8b8da4] hover:text-white hover:bg-[#181a26] transition-colors cursor-pointer">
 							Cancel
 						</button>
 						<button
 							type="submit"
-							className="px-5 py-2.5 rounded-xl text-xs font-semibold bg-[#7c3aed] hover:bg-[#6d28d9] text-white shadow-md shadow-purple-900/40 transition-all cursor-pointer">
-							Upload & Share
+							disabled={isSubmitting}
+							className="px-5 py-2.5 rounded-xl text-xs font-semibold bg-[#7c3aed] hover:bg-[#6d28d9] text-white shadow-md shadow-purple-900/40 transition-all cursor-pointer flex items-center gap-2 disabled:opacity-50">
+							{isSubmitting && (
+								<div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+							)}
+							<span>{isSubmitting ? "Uploading..." : "Upload & Share"}</span>
 						</button>
 					</div>
 				</form>

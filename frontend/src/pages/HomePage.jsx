@@ -71,11 +71,10 @@ const HomePage = ({ onNavigateTab, currentUser }) => {
 				<main className="flex-1 px-6 sm:px-8 py-6 flex gap-8">
 					{/* Center Feed Column */}
 					<div className="flex-1 min-w-0 flex flex-col gap-5">
-						{/* Create Post Card */}
 						<CreatePost
-\t\t\t\t\t\tonAddPost={handleAddPost}
-\t\t\t\t\t\tcurrentUser={currentUser}
-\t\t\t\t\t/>
+							onAddPost={handleAddPost}
+							currentUser={currentUser}
+						/>
 
 						{/* Hashtag Filters */}
 						<TopicFilters

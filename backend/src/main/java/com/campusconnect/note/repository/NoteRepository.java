@@ -10,6 +10,8 @@ import java.util.List;
 
 @Repository
 public interface NoteRepository extends MongoRepository<Note, String> {
+    List<Note> findAllByOrderByCreatedAtDesc();
+    List<Note> findByDepartmentIgnoreCaseOrderByCreatedAtDesc(String department);
     List<Note> findBySubjectIgnoreCase(String subject);
     List<Note> findByBranchIgnoreCaseAndSemester(String branch, Integer semester);
     List<Note> findByUploadedBy(String uploadedBy);

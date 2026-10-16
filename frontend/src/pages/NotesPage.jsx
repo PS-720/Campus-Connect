@@ -1,107 +1,9 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import Sidebar from "../components/layout/Sidebar";
 import Header from "../components/layout/Header";
 import NoteCard from "../components/notes/NoteCard";
 import UploadNotesModal from "../components/notes/UploadNotesModal";
-
-const INITIAL_NOTES = [
-	{
-		id: 1,
-		code: "CS301",
-		title: "Data Structures & Algorithms — Complete Guide",
-		department: "Computer Science",
-		semester: "5th Sem",
-		author: {
-			name: "Dev Patel",
-			avatarText: "D",
-			avatarBg: "bg-[#10b981]",
-		},
-		date: "Sep 2, 2025",
-		rating: "4.8",
-		downloads: 342,
-		pages: 48,
-	},
-	{
-		id: 2,
-		code: "EC402",
-		title: "Digital Signal Processing — Lecture Notes",
-		department: "Electronics",
-		semester: "7th Sem",
-		author: {
-			name: "Priya Sharma",
-			avatarText: "P",
-			avatarBg: "bg-[#10b981]",
-		},
-		date: "Aug 28, 2025",
-		rating: "4.6",
-		downloads: 218,
-		pages: 32,
-	},
-	{
-		id: 3,
-		code: "CS501",
-		title: "Machine Learning Fundamentals",
-		department: "Computer Science",
-		semester: "6th Sem",
-		author: {
-			name: "Sara Liu",
-			avatarText: "S",
-			avatarBg: "bg-[#06b6d4]",
-		},
-		date: "Aug 25, 2025",
-		rating: "4.9",
-		downloads: 567,
-		pages: 64,
-	},
-	{
-		id: 4,
-		code: "MA301",
-		title: "Engineering Mathematics III",
-		department: "Mathematics",
-		semester: "5th Sem",
-		author: {
-			name: "Kenji Tanaka",
-			avatarText: "K",
-			avatarBg: "bg-[#f43f5e]",
-		},
-		date: "Aug 20, 2025",
-		rating: "4.5",
-		downloads: 445,
-		pages: 56,
-	},
-	{
-		id: 5,
-		code: "ME402",
-		title: "Thermodynamics & Heat Transfer",
-		department: "Mechanical",
-		semester: "7th Sem",
-		author: {
-			name: "Aisha Rahman",
-			avatarText: "A",
-			avatarBg: "bg-[#06b6d4]",
-		},
-		date: "Aug 18, 2025",
-		rating: "4.7",
-		downloads: 289,
-		pages: 40,
-	},
-	{
-		id: 6,
-		code: "BU301",
-		title: "Corporate Finance & Valuation",
-		department: "Business",
-		semester: "5th Sem",
-		author: {
-			name: "Marcus Johnson",
-			avatarText: "M",
-			avatarBg: "bg-[#06b6d4]",
-		},
-		date: "Aug 15, 2025",
-		rating: "4.4",
-		downloads: 198,
-		pages: 36,
-	},
-];
+import { getNotes, downloadNote } from "../services/noteService";
 
 const DEPARTMENTS = [
 	"All",
@@ -113,27 +15,58 @@ const DEPARTMENTS = [
 ];
 
 const NotesPage = ({ onNavigateTab }) => {
-	const [notes, setNotes] = useState(INITIAL_NOTES);
+	const [notes, setNotes] = useState([]);
+	const [loading, setLoading] = useState(true);
+	const [error, setError] = useState(null);
 	const [searchQuery, setSearchQuery] = useState("");
 	const [selectedDept, setSelectedDept] = useState("All");
 	const [isUploadOpen, setIsUploadOpen] = useState(false);
 
+	const fetchNotes = useCallback(async () => {
+		try {
+			setLoading(true);
+			setError(null);
+			const params = {};
+			if (selectedDept && selectedDept !== "All") {
+				params.department = selectedDept;
+			}
+			if (searchQuery.trim()) {
+				params.search = searchQuery.trim();
+			}
+			const data = await getNotes(params);
+			setNotes(Array.isArray(data) ? data : []);
+		} catch (err) {
+			console.error("Failed to load notes:", err);
+			setError(err.message || "Failed to load notes. Please try again.");
+		} finally {
+			setLoading(false);
+		}
+	}, [selectedDept, searchQuery]);
+
+	useEffect(() => {
+		fetchNotes();
+	}, [fetchNotes]);
+
 	const handleAddNote = (newNote) => {
-		setNotes([newNote, ...notes]);
+		setNotes((prev) => [newNote, ...prev]);
 	};
 
-	const filteredNotes = notes.filter((n) => {
-		const matchesSearch =
-			n.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-			n.code.toLowerCase().includes(searchQuery.toLowerCase()) ||
-			n.department.toLowerCase().includes(searchQuery.toLowerCase());
-
-		const matchesDept =
-			selectedDept === "All" ||
-			n.department.toLowerCase() === selectedDept.toLowerCase();
-
-		return matchesSearch && matchesDept;
-	});
+	const handleDownload = async (note) => {
+		try {
+			const response = await downloadNote(note.id);
+			const blob = new Blob([response.data || response]);
+			const url = window.URL.createObjectURL(blob);
+			const link = document.createElement("a");
+			link.href = url;
+			link.setAttribute("download", `${note.title || "notes"}.txt`);
+			document.body.appendChild(link);
+			link.click();
+			link.parentNode.removeChild(link);
+			window.URL.revokeObjectURL(url);
+		} catch (err) {
+			console.error("Download failed:", err);
+		}
+	};
 
 	return (
 		<div className="min-h-screen bg-[#07080b] text-white flex">
@@ -227,16 +160,86 @@ const NotesPage = ({ onNavigateTab }) => {
 						</button>
 					</div>
 
+					{/* Error state */}
+					{error && (
+						<div className="flex items-center justify-between p-4 bg-red-500/10 border border-red-500/20 text-red-400 rounded-2xl text-xs sm:text-sm">
+							<span>{error}</span>
+							<button
+								onClick={fetchNotes}
+								className="px-3 py-1 bg-red-500/20 hover:bg-red-500/30 rounded-lg text-red-300 font-medium transition-colors cursor-pointer">
+								Retry
+							</button>
+						</div>
+					)}
+
+					{/* Loading Skeletons */}
+					{loading && (
+						<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+							{[...Array(8)].map((_, i) => (
+								<div
+									key={i}
+									className="flex flex-col bg-[#0d0f15] border border-[#1b1e2a] rounded-2xl p-5 justify-between gap-5 animate-pulse min-h-[220px]">
+									<div className="flex flex-col gap-3.5">
+										<div className="flex items-center justify-between">
+											<div className="w-10 h-10 rounded-xl bg-[#181b28]" />
+											<div className="w-14 h-5 rounded-md bg-[#181b28]" />
+										</div>
+										<div className="h-4 bg-[#181b28] rounded w-4/5" />
+										<div className="h-3 bg-[#181b28] rounded w-2/5" />
+									</div>
+									<div className="pt-3 border-t border-[#181a26] flex flex-col gap-3">
+										<div className="flex items-center justify-between">
+											<div className="flex items-center gap-2">
+												<div className="w-6 h-6 rounded-full bg-[#181b28]" />
+												<div className="w-16 h-3 bg-[#181b28] rounded" />
+											</div>
+											<div className="w-12 h-3 bg-[#181b28] rounded" />
+										</div>
+										<div className="flex items-center justify-between pt-1">
+											<div className="w-24 h-3 bg-[#181b28] rounded" />
+											<div className="w-16 h-3 bg-[#181b28] rounded" />
+										</div>
+									</div>
+								</div>
+							))}
+						</div>
+					)}
+
+					{/* Empty State */}
+					{!loading && !error && notes.length === 0 && (
+						<div className="flex flex-col items-center justify-center py-20 px-4 text-center border border-dashed border-[#1e2235] rounded-3xl bg-[#0c0e14]/50">
+							<div className="w-14 h-14 rounded-2xl bg-[#151824] border border-[#23273c] flex items-center justify-center text-[#7c3aed] mb-4">
+								<svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+									<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+								</svg>
+							</div>
+							<h3 className="text-base font-semibold text-white mb-1">No notes found</h3>
+							<p className="text-xs text-[#6e728c] max-w-sm mb-5">
+								{searchQuery || selectedDept !== "All"
+									? "Try adjusting your search query or department filter."
+									: "Be the first student to upload and share study materials for your peers!"}
+							</p>
+							<button
+								type="button"
+								onClick={() => setIsUploadOpen(true)}
+								className="px-4 py-2 rounded-xl text-xs font-semibold bg-[#7c3aed] hover:bg-[#6d28d9] text-white transition-all cursor-pointer">
+								Upload Note
+							</button>
+						</div>
+					)}
+
 					{/* Notes Grid */}
-					<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-						{filteredNotes.map((note) => (
-							<NoteCard
-								key={note.id}
-								note={note}
-								onDownload={(n) => console.log("Downloading note:", n.title)}
-							/>
-						))}
-					</div>
+					{!loading && !error && notes.length > 0 && (
+						<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+							{notes.map((note) => (
+								<NoteCard
+									key={note.id}
+									note={note}
+									onDownload={handleDownload}
+								/>
+							))}
+						</div>
+					)}
 				</main>
 			</div>
 

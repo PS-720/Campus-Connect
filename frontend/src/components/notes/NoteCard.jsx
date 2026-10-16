@@ -1,28 +1,46 @@
 import React, { useState } from "react";
+import { downloadNote } from "../../services/noteService";
 
 const NoteCard = ({ note, onDownload }) => {
 	const {
+		id,
 		code,
 		title,
 		department,
 		semester,
-		author,
+		author = {},
 		date,
 		rating,
-		downloads,
-		pages,
+		downloads = 0,
+		pages = 0,
 	} = note;
 
 	const [downloadCount, setDownloadCount] = useState(downloads);
 	const [isDownloading, setIsDownloading] = useState(false);
 
-	const handleDownload = () => {
-		setIsDownloading(true);
-		setTimeout(() => {
+	const handleDownload = async () => {
+		try {
+			setIsDownloading(true);
+			if (onDownload) {
+				await onDownload(note);
+			} else {
+				const response = await downloadNote(id);
+				const blob = new Blob([response.data || response]);
+				const url = window.URL.createObjectURL(blob);
+				const link = document.createElement("a");
+				link.href = url;
+				link.setAttribute("download", `${title || "notes"}.txt`);
+				document.body.appendChild(link);
+				link.click();
+				link.parentNode.removeChild(link);
+				window.URL.revokeObjectURL(url);
+			}
 			setDownloadCount((prev) => prev + 1);
+		} catch (err) {
+			console.error("Failed to download note:", err);
+		} finally {
 			setIsDownloading(false);
-			if (onDownload) onDownload(note);
-		}, 600);
+		}
 	};
 
 	return (
@@ -71,12 +89,12 @@ const NoteCard = ({ note, onDownload }) => {
 					<div className="flex items-center gap-2">
 						<div
 							className={`w-6 h-6 rounded-full ${
-								author.avatarBg || "bg-[#10b981]"
+								author?.avatarBg || "bg-[#10b981]"
 							} text-white font-bold flex items-center justify-center text-[10px] shrink-0 select-none`}>
-							{author.avatarText || author.name?.[0]}
+							{author?.avatarText || author?.name?.[0] || "S"}
 						</div>
 						<span className="text-xs text-[#c4c6dc] font-medium">
-							{author.name}
+							{author?.name || "Student"}
 						</span>
 					</div>
 
