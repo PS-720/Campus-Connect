@@ -75,8 +75,10 @@ public class NoteResponse {
         }
         res.setSemester(semStr);
 
-        String uploaderName = note.getUploaderName() != null ? note.getUploaderName() : "Student";
-        String avatarLetter = uploaderName.substring(0, 1).toUpperCase();
+        String uploaderName = (note.getUploaderName() != null && !note.getUploaderName().isBlank())
+                ? note.getUploaderName().trim()
+                : "Student";
+        String avatarLetter = !uploaderName.isEmpty() ? uploaderName.substring(0, 1).toUpperCase() : "S";
         String[] colors = {"bg-[#10b981]", "bg-[#06b6d4]", "bg-[#f43f5e]", "bg-[#8b5cf6]", "bg-[#f59e0b]"};
         int colorIdx = Math.abs(uploaderName.hashCode()) % colors.length;
         res.setAuthor(new AuthorDto(note.getUploadedBy(), uploaderName, avatarLetter, colors[colorIdx]));
