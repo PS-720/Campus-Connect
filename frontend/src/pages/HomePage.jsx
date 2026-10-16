@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import Sidebar from "../components/layout/Sidebar";
 import Header from "../components/layout/Header";
 import CreatePost from "../components/feed/CreatePost";
@@ -7,83 +7,44 @@ import PostCard from "../components/feed/PostCard";
 import UpcomingEvents from "../components/widgets/UpcomingEvents";
 import JoinCommunities from "../components/widgets/JoinCommunities";
 import AiStudyTip from "../components/widgets/AiStudyTip";
-import hackathonImg from "../assets/hackathon.jpg";
+import { getFeed } from "../services/postService";
 
-const INITIAL_POSTS = [
-	{
-		id: 1,
-		author: {
-			name: "Priya Sharma",
-			avatarText: "P",
-			avatarBg: "bg-[#10b981]",
-			department: "Computer Science",
-			year: "3rd Year",
-		},
-		time: "2h ago",
-		tags: ["Hackathon", "AI/ML"],
-		content:
-			"Just won first place at the Inter-College Hackathon! Our team built an AI-powered campus navigation system using real-time data. So grateful for everyone who supported us! 🚀",
-		image: hackathonImg,
-		likes: 142,
-		comments: 28,
-		shares: 12,
-	},
-	{
-		id: 2,
-		author: {
-			name: "Marcus Johnson",
-			avatarText: "M",
-			avatarBg: "bg-[#06b6d4]",
-			department: "Electrical Eng.",
-			year: "2nd Year",
-		},
-		time: "4h ago",
-		tags: ["Open Source", "Coding"],
-		content:
-			"Working on our autonomous robotics rover project in the lab today! Anyone interested in embedded systems and ROS2, let me know. We have open spots for the upcoming semester competition! 🤖⚡",
-		image: null,
-		likes: 89,
-		comments: 14,
-		shares: 7,
-	},
-	{
-		id: 3,
-		author: {
-			name: "Ananya Patel",
-			avatarText: "A",
-			avatarBg: "bg-[#8b5cf6]",
-			department: "Design & Media",
-			year: "4th Year",
-		},
-		time: "6h ago",
-		tags: ["Design", "CampusLife"],
-		content:
-			"UX research survey for our new campus library study pod reservation system is live. Please fill it out if you have 2 mins! Appreciate the feedback! ✨",
-		image: null,
-		likes: 56,
-		comments: 9,
-		shares: 4,
-	},
-];
-
-const HomePage = ({ onNavigateTab }) => {
-	const [posts, setPosts] = useState(INITIAL_POSTS);
+const HomePage = ({ onNavigateTab, currentUser }) => {
+	const [posts, setPosts] = useState([]);
 	const [selectedTopic, setSelectedTopic] = useState(null);
+	const [loading, setLoading] = useState(true);
+	const [error, setError] = useState(null);
 
-	const handleAddPost = (newPost) => {
-		setPosts([newPost, ...posts]);
-	};
+	// Load feed from backend whenever the selected topic filter changes
+	const loadFeed = useCallback(async () => {
+		setLoading(true);
+		setError(null);
+		try {
+			const data = await getFeed(selectedTopic);
+			setPosts(Array.isArray(data) ? data : []);
+		} catch (err) {
+			console.error("Failed to load feed:", err);
+			setError("Could not load posts. Please try again.");
+		} finally {
+			setLoading(false);
+		}
+	}, [selectedTopic]);
 
-	const filteredPosts = selectedTopic
-		? posts.filter(
-				(p) =>
-					p.tags?.some(
-						(t) =>
-							t.toLowerCase() ===
-							selectedTopic.replace("#", "").toLowerCase()
-					) || p.content.toLowerCase().includes(selectedTopic.toLowerCase())
-		  )
-		: posts;
+	useEffect(() => {
+		loadFeed();
+	}, [loadFeed]);
+
+	// Called by CreatePost when a new post is successfully created on the backend
+	const handleAddPost = useCallback((newPost) => {
+		setPosts((prev) => [newPost, ...prev]);
+	}, []);
+
+	// Called by PostCard when a post is mutated (liked, bookmarked, commented)
+	const handlePostUpdated = useCallback((updatedPost) => {
+		setPosts((prev) =>
+			prev.map((p) => (p.id === updatedPost.id ? updatedPost : p))
+		);
+	}, []);
 
 	return (
 		<div className="min-h-screen bg-[#07080b] text-white flex">
@@ -96,7 +57,14 @@ const HomePage = ({ onNavigateTab }) => {
 				<Header
 					title="Home"
 					subtitle="What's happening on campus"
-					user={{ name: "Alex Chen", avatar: "A" }}
+					user={
+						currentUser
+							? {
+									name: currentUser.fullName || currentUser.username || "You",
+									avatar: (currentUser.fullName || currentUser.username || "U")[0].toUpperCase(),
+							  }
+							: { name: "Campus Connect", avatar: "C" }
+					}
 				/>
 
 				{/* Two-column feed + widgets layout */}
@@ -104,7 +72,10 @@ const HomePage = ({ onNavigateTab }) => {
 					{/* Center Feed Column */}
 					<div className="flex-1 min-w-0 flex flex-col gap-5">
 						{/* Create Post Card */}
-						<CreatePost onAddPost={handleAddPost} userAvatar="A" />
+						<CreatePost
+\t\t\t\t\t\tonAddPost={handleAddPost}
+\t\t\t\t\t\tcurrentUser={currentUser}
+\t\t\t\t\t/>
 
 						{/* Hashtag Filters */}
 						<TopicFilters
@@ -113,11 +84,52 @@ const HomePage = ({ onNavigateTab }) => {
 						/>
 
 						{/* Posts Feed */}
-						<div className="flex flex-col gap-5">
-							{filteredPosts.map((post) => (
-								<PostCard key={post.id} post={post} />
-							))}
-						</div>
+						{loading ? (
+							<div className="flex flex-col gap-4">
+								{[1, 2, 3].map((n) => (
+									<div
+										key={n}
+										className="w-full bg-[#0d0f15] border border-[#1b1e2a] rounded-2xl p-5 animate-pulse">
+										<div className="flex items-center gap-3 mb-4">
+											<div className="w-10 h-10 rounded-full bg-[#1b1e2a]" />
+											<div className="flex-1 space-y-2">
+												<div className="h-3 bg-[#1b1e2a] rounded w-1/3" />
+												<div className="h-2 bg-[#1b1e2a] rounded w-1/2" />
+											</div>
+										</div>
+										<div className="space-y-2">
+											<div className="h-3 bg-[#1b1e2a] rounded w-full" />
+											<div className="h-3 bg-[#1b1e2a] rounded w-5/6" />
+										</div>
+									</div>
+								))}
+							</div>
+						) : error ? (
+							<div className="text-center py-12 text-[#ef4444]">
+								<p className="mb-3">{error}</p>
+								<button
+									onClick={loadFeed}
+									className="px-4 py-2 bg-[#1b1e2a] hover:bg-[#22263a] rounded-lg text-sm text-[#d4d6e2] transition-colors">
+									Retry
+								</button>
+							</div>
+						) : posts.length === 0 ? (
+							<div className="text-center py-16 text-[#595c73]">
+								<p className="text-lg font-semibold mb-1">No posts yet</p>
+								<p className="text-sm">Be the first to share something with your campus!</p>
+							</div>
+						) : (
+							<div className="flex flex-col gap-5">
+								{posts.map((post) => (
+									<PostCard
+										key={post.id}
+										post={post}
+										currentUser={currentUser}
+										onPostUpdated={handlePostUpdated}
+									/>
+								))}
+							</div>
+						)}
 					</div>
 
 					{/* Right Sidebar Widgets */}

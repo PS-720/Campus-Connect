@@ -52,10 +52,11 @@ public class SecurityConfig {
                                 "/api/v1/health",
                                 "/ws/**"
                         ).permitAll()
-                        // Public GET requests for browsing notes, events, communities
+                        // Public GET requests for browsing notes, events, communities, posts
                         .requestMatchers(HttpMethod.GET, "/api/v1/notes/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/communities/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/events/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/posts/**").permitAll()
                         // All other endpoints require authentication
                         .anyRequest().authenticated()
                 )

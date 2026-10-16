@@ -188,4 +188,95 @@ class CampusConnectApplicationTests {
         );
         assertThat(unauthRes.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
     }
+
+    @Test
+    @DisplayName("Verify Social Posts, Feed Retrieval, Likes, Comments, and Bookmarks")
+    void testSocialPostsWorkflow() {
+        // 1. Register test user
+        RegisterRequest registerReq = new RegisterRequest();
+        registerReq.setName("Sam Postman");
+        registerReq.setEmail("tester@campus.edu");
+        registerReq.setPassword("Password123!");
+        registerReq.setDepartment("Computer Science");
+        registerReq.setYearOfStudy(3);
+
+        ResponseEntity<ApiResponse<AuthResponse>> registerRes = restTemplate.exchange(
+                getBaseUrl() + "/auth/register",
+                HttpMethod.POST,
+                new HttpEntity<>(registerReq),
+                new ParameterizedTypeReference<ApiResponse<AuthResponse>>() {}
+        );
+        String token = registerRes.getBody().getData().getToken();
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBearerAuth(token);
+
+        // 2. Create a Post
+        Map<String, Object> postReq = Map.of(
+                "content", "Building an AI navigation system for campus!",
+                "tags", java.util.List.of("Hackathon", "AI/ML")
+        );
+        ResponseEntity<ApiResponse<Map<String, Object>>> createPostRes = restTemplate.exchange(
+                getBaseUrl() + "/posts",
+                HttpMethod.POST,
+                new HttpEntity<>(postReq, headers),
+                new ParameterizedTypeReference<ApiResponse<Map<String, Object>>>() {}
+        );
+        assertThat(createPostRes.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+        Map<String, Object> postData = createPostRes.getBody().getData();
+        String postId = (String) postData.get("id");
+        assertThat(postId).isNotBlank();
+        assertThat(postData.get("authorName")).isEqualTo("Sam Postman");
+
+        // 3. Get Feed
+        ResponseEntity<ApiResponse<java.util.List<Map<String, Object>>>> feedRes = restTemplate.exchange(
+                getBaseUrl() + "/posts",
+                HttpMethod.GET,
+                new HttpEntity<>(headers),
+                new ParameterizedTypeReference<ApiResponse<java.util.List<Map<String, Object>>>>() {}
+        );
+        assertThat(feedRes.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(feedRes.getBody().getData()).isNotEmpty();
+
+        // 4. Like Post
+        ResponseEntity<ApiResponse<Map<String, Object>>> likeRes = restTemplate.exchange(
+                getBaseUrl() + "/posts/" + postId + "/like",
+                HttpMethod.POST,
+                new HttpEntity<>(headers),
+                new ParameterizedTypeReference<ApiResponse<Map<String, Object>>>() {}
+        );
+        assertThat(likeRes.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(likeRes.getBody().getData().get("likesCount")).isEqualTo(1);
+        assertThat(likeRes.getBody().getData().get("liked")).isEqualTo(true);
+
+        // 5. Bookmark Post
+        ResponseEntity<ApiResponse<Map<String, Object>>> bookmarkRes = restTemplate.exchange(
+                getBaseUrl() + "/posts/" + postId + "/bookmark",
+                HttpMethod.POST,
+                new HttpEntity<>(headers),
+                new ParameterizedTypeReference<ApiResponse<Map<String, Object>>>() {}
+        );
+        assertThat(bookmarkRes.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(bookmarkRes.getBody().getData().get("bookmarked")).isEqualTo(true);
+
+        // 6. Add Comment
+        Map<String, Object> commentReq = Map.of("content", "Awesome project, good luck!");
+        ResponseEntity<ApiResponse<Map<String, Object>>> commentRes = restTemplate.exchange(
+                getBaseUrl() + "/posts/" + postId + "/comments",
+                HttpMethod.POST,
+                new HttpEntity<>(commentReq, headers),
+                new ParameterizedTypeReference<ApiResponse<Map<String, Object>>>() {}
+        );
+        assertThat(commentRes.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+        assertThat(commentRes.getBody().getData().get("content")).isEqualTo("Awesome project, good luck!");
+
+        // 7. Get Comments
+        ResponseEntity<ApiResponse<java.util.List<Map<String, Object>>>> getCommentsRes = restTemplate.exchange(
+                getBaseUrl() + "/posts/" + postId + "/comments",
+                HttpMethod.GET,
+                new HttpEntity<>(headers),
+                new ParameterizedTypeReference<ApiResponse<java.util.List<Map<String, Object>>>>() {}
+        );
+        assertThat(getCommentsRes.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(getCommentsRes.getBody().getData()).hasSize(1);
+    }
 }
