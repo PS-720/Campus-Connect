@@ -1,8 +1,9 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import Sidebar from "../components/layout/Sidebar";
 import Header from "../components/layout/Header";
 import EventTabs from "../components/events/EventTabs";
 import EventCard from "../components/events/EventCard";
+import { getEvents, registerForEvent, unregisterFromEvent } from "../services/eventService";
 
 import hackathonImg from "../assets/hackathon.jpg";
 import roboticsImg from "../assets/robotics.jpg";
@@ -10,95 +11,120 @@ import businessImg from "../assets/business.jpg";
 import cameraImg from "../assets/camera.jpg";
 import sportsImg from "../assets/sports.jpg";
 
-const INITIAL_EVENTS = [
-	{
-		id: 1,
-		title: "HackMIT 2025",
-		category: "Hackathon",
-		date: "Sep 12–13, 2025",
-		time: "9:00 AM",
-		location: "Main Auditorium",
-		attendeesCount: 342,
-		isRegistered: true,
-		status: "upcoming",
-		image: hackathonImg,
-	},
-	{
-		id: 2,
-		title: "AI Workshop Series: LLMs",
-		category: "Workshop",
-		date: "Sep 15, 2025",
-		time: "2:00 PM",
-		location: "CS Lab 204",
-		attendeesCount: 80,
-		isRegistered: false,
-		status: "upcoming",
-		image: roboticsImg,
-	},
-	{
-		id: 3,
-		title: "Annual Career Fair 2025",
-		category: "Career",
-		date: "Sep 18, 2025",
-		time: "10:00 AM",
-		location: "Campus Grounds",
-		attendeesCount: 1200,
-		isRegistered: true,
-		status: "upcoming",
-		image: businessImg,
-	},
-	{
-		id: 4,
-		title: "Photography Exhibition",
-		category: "Cultural",
-		date: "Sep 20–22, 2025",
-		time: "11:00 AM",
-		location: "Art Gallery",
-		attendeesCount: 450,
-		isRegistered: false,
-		status: "upcoming",
-		image: cameraImg,
-	},
-	{
-		id: 5,
-		title: "Inter-College Cricket Tournament",
-		category: "Sports",
-		date: "Sep 25, 2025",
-		time: "8:00 AM",
-		location: "Sports Complex",
-		attendeesCount: 600,
-		isRegistered: false,
-		status: "upcoming",
-		image: sportsImg,
-	},
-];
+const IMAGE_MAP = {
+	hackathon: hackathonImg,
+	robotics: roboticsImg,
+	business: businessImg,
+	camera: cameraImg,
+	sports: sportsImg,
+};
+
+const resolveEventImage = (img) => {
+	if (!img) return hackathonImg;
+	const key = img.toLowerCase();
+	if (IMAGE_MAP[key]) return IMAGE_MAP[key];
+	return img;
+};
 
 const EventsPage = ({ onNavigateTab }) => {
-	const [events, setEvents] = useState(INITIAL_EVENTS);
+	const [events, setEvents] = useState([]);
+	const [loading, setLoading] = useState(true);
+	const [error, setError] = useState(null);
 	const [activeTab, setActiveTab] = useState("Upcoming");
 	const [searchQuery, setSearchQuery] = useState("");
 
-	const handleToggleRegister = (id) => {
+	const fetchEvents = useCallback(async () => {
+		try {
+			setLoading(true);
+			setError(null);
+			const data = await getEvents();
+			const list = Array.isArray(data) ? data : [];
+			const formatted = list.map((ev) => ({
+				...ev,
+				image: resolveEventImage(ev.image),
+			}));
+			setEvents(formatted);
+		} catch (err) {
+			console.error("Failed to load events:", err);
+			setError(err.message || "Failed to load events. Please try again.");
+		} finally {
+			setLoading(false);
+		}
+	}, []);
+
+	useEffect(() => {
+		fetchEvents();
+	}, [fetchEvents]);
+
+	const handleToggleRegister = async (id) => {
+		const target = events.find((ev) => ev.id === id);
+		if (!target) return;
+
+		const willRegister = !target.isRegistered;
+
+		// Optimistic UI update
 		setEvents((prev) =>
 			prev.map((ev) =>
 				ev.id === id
 					? {
 							...ev,
-							isRegistered: !ev.isRegistered,
-							attendeesCount: ev.isRegistered
-								? ev.attendeesCount - 1
-								: ev.attendeesCount + 1,
+							isRegistered: willRegister,
+							attendeesCount: willRegister
+								? ev.attendeesCount + 1
+								: Math.max(0, ev.attendeesCount - 1),
 					  }
 					: ev
 			)
 		);
+
+		try {
+			if (willRegister) {
+				const updated = await registerForEvent(id);
+				if (updated) {
+					setEvents((prev) =>
+						prev.map((ev) =>
+							ev.id === id
+								? { ...ev, ...updated, image: resolveEventImage(updated.image) }
+								: ev
+						)
+					);
+				}
+			} else {
+				const updated = await unregisterFromEvent(id);
+				if (updated) {
+					setEvents((prev) =>
+						prev.map((ev) =>
+							ev.id === id
+								? { ...ev, ...updated, image: resolveEventImage(updated.image) }
+								: ev
+						)
+					);
+				}
+			}
+		} catch (err) {
+			console.error("Failed to toggle registration:", err);
+			// Rollback on failure
+			setEvents((prev) =>
+				prev.map((ev) =>
+					ev.id === id
+						? {
+								...ev,
+								isRegistered: !willRegister,
+								attendeesCount: !willRegister
+									? ev.attendeesCount + 1
+									: Math.max(0, ev.attendeesCount - 1),
+						  }
+						: ev
+				)
+			);
+		}
 	};
 
 	const filteredEvents = events.filter((ev) => {
 		const matchesSearch =
-			ev.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-			ev.location.toLowerCase().includes(searchQuery.toLowerCase()) ||
-			ev.category.toLowerCase().includes(searchQuery.toLowerCase());
+			(ev.title || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+			(ev.location || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+			(ev.category || "").toLowerCase().includes(searchQuery.toLowerCase());
 
 		if (!matchesSearch) return false;
 
@@ -108,8 +134,8 @@ const EventsPage = ({ onNavigateTab }) => {
 		if (activeTab === "Past") {
 			return ev.status === "past";
 		}
-		// "Upcoming"
-		return ev.status === "upcoming";
+		// "Upcoming" (or default)
+		return ev.status !== "past";
 	});
 
 	return (
@@ -136,8 +162,39 @@ const EventsPage = ({ onNavigateTab }) => {
 						onSelectTab={(tab) => setActiveTab(tab)}
 					/>
 
+					{/* Error state */}
+					{error && (
+						<div className="flex items-center justify-between p-4 bg-red-500/10 border border-red-500/20 text-red-400 rounded-2xl text-xs sm:text-sm">
+							<span>{error}</span>
+							<button
+								onClick={fetchEvents}
+								className="px-3 py-1 bg-red-500/20 hover:bg-red-500/30 rounded-lg text-red-300 font-medium transition-colors cursor-pointer">
+								Retry
+							</button>
+						</div>
+					)}
+
+					{/* Loading Skeletons */}
+					{loading && (
+						<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+							{[1, 2, 3, 4].map((n) => (
+								<div
+									key={n}
+									className="flex flex-col bg-[#0d0f15] border border-[#1b1e2a] rounded-2xl overflow-hidden animate-pulse">
+									<div className="w-full h-44 bg-[#161824]" />
+									<div className="p-5 flex flex-col gap-3">
+										<div className="h-4 bg-[#161824] rounded w-3/4" />
+										<div className="h-3 bg-[#161824] rounded w-1/2" />
+										<div className="h-3 bg-[#161824] rounded w-2/3" />
+										<div className="h-9 bg-[#161824] rounded-xl mt-2" />
+									</div>
+								</div>
+							))}
+						</div>
+					)}
+
 					{/* Events Grid */}
-					{filteredEvents.length > 0 ? (
+					{!loading && !error && filteredEvents.length > 0 && (
 						<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
 							{filteredEvents.map((ev) => (
 								<EventCard
@@ -147,7 +204,10 @@ const EventsPage = ({ onNavigateTab }) => {
 								/>
 							))}
 						</div>
-					) : (
+					)}
+
+					{/* Empty State */}
+					{!loading && !error && filteredEvents.length === 0 && (
 						<div className="flex flex-col items-center justify-center py-20 text-center bg-[#0d0f15] border border-[#1b1e2a] rounded-2xl p-8">
 							<div className="w-12 h-12 rounded-2xl bg-[#141622] border border-[#202334] flex items-center justify-center text-[#71748d] mb-3">
 								<svg
@@ -169,7 +229,7 @@ const EventsPage = ({ onNavigateTab }) => {
 							<p className="text-xs text-[#71748d] mt-1 max-w-sm">
 								{activeTab === "Registered"
 									? "You haven't registered for any events yet. Check out the Upcoming tab to discover exciting campus activities!"
-									: "No past events available right now."}
+									: "No events match your current filter or search criteria."}
 							</p>
 						</div>
 					)}
