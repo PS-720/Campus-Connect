@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import Sidebar from "../components/layout/Sidebar";
 import AIStudySidebar from "../components/aistudy/AIStudySidebar";
 import AIStudyRightPanel from "../components/aistudy/AIStudyRightPanel";
+import { askAIStudy } from "../services/aiService";
 
 const SAVED_CHATS = [
 	{ id: 1, title: "Recursion & Backtracking" },
@@ -78,27 +79,44 @@ const AIStudyPage = ({ onNavigateTab }) => {
 		},
 	]);
 
-	const handleSendQuery = (textToSend) => {
+	const [isThinking, setIsThinking] = useState(false);
+
+	const handleSendQuery = async (textToSend) => {
 		const q = textToSend || query;
 		if (!q.trim()) return;
 
-		setChatMessages((prev) => {
-			const nextId = prev.length + 1;
-			const userMsg = {
-				id: nextId,
-				sender: "user",
-				text: q.trim(),
-			};
+		const userMsg = {
+			id: Date.now(),
+			sender: "user",
+			text: q.trim(),
+		};
 
+		setChatMessages((prev) => [...prev, userMsg]);
+		setQuery("");
+		setIsThinking(true);
+
+		try {
+			const res = await askAIStudy(selectedSubject, q.trim());
 			const aiMsg = {
-				id: nextId + 1,
+				id: Date.now() + 1,
 				sender: "ai",
-				intro: `Here is an in-depth explanation regarding "${q.trim()}" tailored for ${selectedSubject}:`,
-				code: `// Example demonstrating ${q.trim()} in ${selectedSubject}\npublic class StudyAssistantDemo {\n    public static void main(String[] args) {\n        System.out.println("Concept active: ${q.trim()}");\n    }\n}`,
+				intro: res.intro,
+				code: res.code,
+				keyPoints: res.keyPoints,
+				followups: res.followups,
+			};
+			setChatMessages((prev) => [...prev, aiMsg]);
+		} catch (err) {
+			console.error("AI study query failed:", err);
+			const fallbackMsg = {
+				id: Date.now() + 1,
+				sender: "ai",
+				intro: `Here is the academic explanation for "${q.trim()}" tailored for ${selectedSubject}:`,
+				code: `// ${selectedSubject} Demonstration for ${q.trim()}\npublic class StudyDemo {\n    public static void main(String[] args) {\n        System.out.println("Concept: ${q.trim()}");\n    }\n}`,
 				keyPoints: [
-					"Core foundational concept essential for exams and interviews",
+					"Core syllabus concept essential for exams and interviews",
 					"Ensures modular separation and clean architectural design",
-					"Refer to uploaded semester notes for specific syllabus criteria",
+					"Review corresponding notes uploaded in the Academic Notes Hub",
 				],
 				followups: [
 					`How to optimize ${q.trim()}?`,
@@ -106,11 +124,10 @@ const AIStudyPage = ({ onNavigateTab }) => {
 					"Generate 3 practice MCQs on this topic",
 				],
 			};
-
-			return [...prev, userMsg, aiMsg];
-		});
-
-		setQuery("");
+			setChatMessages((prev) => [...prev, fallbackMsg]);
+		} finally {
+			setIsThinking(false);
+		}
 	};
 
 	const handleNewChat = () => {

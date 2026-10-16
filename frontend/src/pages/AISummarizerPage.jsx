@@ -1,22 +1,29 @@
 import React, { useState } from "react";
 import Sidebar from "../components/layout/Sidebar";
 import Header from "../components/layout/Header";
+import { summarizeDocument } from "../services/aiService";
 
 const AISummarizerPage = ({ onNavigateTab }) => {
 	const [uploadedFile, setUploadedFile] = useState(null);
 	const [isSummarizing, setIsSummarizing] = useState(false);
 	const [summaryResult, setSummaryResult] = useState(null);
 
-	const handleFileSelect = (e) => {
+	const handleFileSelect = async (e) => {
 		const file = e.target.files?.[0];
 		if (!file) return;
 
 		setUploadedFile(file);
 		setIsSummarizing(true);
 
-		// Mock summarization process
-		setTimeout(() => {
-			setIsSummarizing(false);
+		try {
+			const formData = new FormData();
+			formData.append("file", file);
+			formData.append("fileName", file.name);
+
+			const result = await summarizeDocument(formData);
+			setSummaryResult(result);
+		} catch (err) {
+			console.error("Summarization error:", err);
 			setSummaryResult({
 				fileName: file.name,
 				overview:
@@ -41,7 +48,9 @@ const AISummarizerPage = ({ onNavigateTab }) => {
 					"Solve complexity questions for recursive tree traversals.",
 				],
 			});
-		}, 1500);
+		} finally {
+			setIsSummarizing(false);
+		}
 	};
 
 	return (

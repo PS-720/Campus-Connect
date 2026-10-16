@@ -50,6 +50,7 @@ public class SecurityConfig {
                         .requestMatchers(
                                 "/api/v1/auth/**",
                                 "/api/v1/health",
+                                "/api/v1/ai/**",
                                 "/ws/**"
                         ).permitAll()
                         // Public GET requests for browsing notes, events, communities, posts

@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import Sidebar from "../components/layout/Sidebar";
 import Header from "../components/layout/Header";
+import { generateAIQuiz } from "../services/aiService";
 
 const SUBJECT_TOPICS = {
 	"Computer Science": [
@@ -86,15 +87,32 @@ const AIQuizPage = ({ onNavigateTab }) => {
 		}
 	};
 
-	const handleGenerateQuiz = () => {
+	const handleGenerateQuiz = async () => {
 		setIsGenerating(true);
-		setTimeout(() => {
-			setIsGenerating(false);
+		try {
+			const questions = await generateAIQuiz({
+				subject,
+				topic,
+				difficulty,
+				questionCount: 5,
+			});
+			if (Array.isArray(questions) && questions.length > 0) {
+				setActiveQuiz(questions);
+			} else {
+				setActiveQuiz(SAMPLE_QUIZ_QUESTIONS);
+			}
+			setCurrentQuestionIdx(0);
+			setSelectedAnswers({});
+			setShowResults(false);
+		} catch (err) {
+			console.error("Quiz generation failed:", err);
 			setActiveQuiz(SAMPLE_QUIZ_QUESTIONS);
 			setCurrentQuestionIdx(0);
 			setSelectedAnswers({});
 			setShowResults(false);
-		}, 1200);
+		} finally {
+			setIsGenerating(false);
+		}
 	};
 
 	const handleSelectAnswer = (qId, optionIdx) => {
