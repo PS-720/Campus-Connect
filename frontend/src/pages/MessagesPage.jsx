@@ -1,178 +1,63 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import Sidebar from "../components/layout/Sidebar";
 import ConversationItem from "../components/messages/ConversationItem";
 import ChatView from "../components/messages/ChatView";
-
-const INITIAL_CONVERSATIONS = [
-	{
-		id: 1,
-		name: "Priya Sharma",
-		lastMessage: "Did you see the hackatho...",
-		time: "2m",
-		unreadCount: 2,
-		avatarText: "P",
-		avatarBg: "bg-[#10b981]",
-		isOnline: true,
-		subtitle: "Computer Science · 3rd Year",
-		messages: [
-			{
-				id: 101,
-				text: "Hey Alex! How is the project going?",
-				time: "10:14 AM",
-				isMe: false,
-			},
-			{
-				id: 102,
-				text: "Going great, just finishing up the events page!",
-				time: "10:15 AM",
-				isMe: true,
-			},
-			{
-				id: 103,
-				text: "Did you see the hackathon announcement for next week?",
-				time: "10:16 AM",
-				isMe: false,
-			},
-		],
-	},
-	{
-		id: 2,
-		name: "Coding Club",
-		lastMessage: "Meeting tomorrow at 5 PM...",
-		time: "15m",
-		unreadCount: 5,
-		avatarText: "C",
-		avatarBg: "bg-[#f97316]",
-		isOnline: true,
-		subtitle: "1,247 members",
-		messages: [
-			{
-				id: 201,
-				text: "Reminder: Weekly open-source workshop is scheduled.",
-				time: "9:30 AM",
-				isMe: false,
-			},
-			{
-				id: 202,
-				text: "Meeting tomorrow at 5 PM in Room 304!",
-				time: "9:45 AM",
-				isMe: false,
-			},
-		],
-	},
-	{
-		id: 3,
-		name: "Dev Patel",
-		lastMessage: "Thanks for the notes!",
-		time: "1h",
-		unreadCount: 0,
-		avatarText: "D",
-		avatarBg: "bg-[#10b981]",
-		isOnline: false,
-		subtitle: "Computer Science · 5th Sem",
-		messages: [
-			{
-				id: 301,
-				text: "Hey, can you share your algorithms guide?",
-				time: "Yesterday",
-				isMe: false,
-			},
-			{
-				id: 302,
-				text: "Sure thing, just uploaded it to the Notes section!",
-				time: "Yesterday",
-				isMe: true,
-			},
-			{
-				id: 303,
-				text: "Thanks for the notes!",
-				time: "1h ago",
-				isMe: false,
-			},
-		],
-	},
-	{
-		id: 4,
-		name: "AI & Robotics Study Group",
-		lastMessage: "Marcus: Check out this paper o...",
-		time: "2h",
-		unreadCount: 0,
-		avatarText: "A",
-		avatarBg: "bg-[#06b6d4]",
-		isOnline: true,
-		subtitle: "856 members",
-		messages: [
-			{
-				id: 401,
-				text: "Marcus: Check out this paper on vision-language models for robot control!",
-				time: "2h ago",
-				isMe: false,
-			},
-		],
-	},
-	{
-		id: 5,
-		name: "Sara Liu",
-		lastMessage: "Are you free for the study ...",
-		time: "3h",
-		unreadCount: 1,
-		avatarText: "S",
-		avatarBg: "bg-[#06b6d4]",
-		isOnline: true,
-		subtitle: "Computer Science · 6th Sem",
-		messages: [
-			{
-				id: 501,
-				text: "Are you free for the study session before the exam?",
-				time: "3h ago",
-				isMe: false,
-			},
-		],
-	},
-	{
-		id: 6,
-		name: "Marcus Johnson",
-		lastMessage: "The PR is ready for review",
-		time: "5h",
-		unreadCount: 0,
-		avatarText: "M",
-		avatarBg: "bg-[#06b6d4]",
-		isOnline: false,
-		subtitle: "Electrical Eng. · 2nd Year",
-		messages: [
-			{
-				id: 601,
-				text: "The PR is ready for review whenever you have a chance.",
-				time: "5h ago",
-				isMe: false,
-			},
-		],
-	},
-];
+import { getConversations, sendMessage, markConversationRead } from "../services/messageService";
 
 const MessagesPage = ({ onNavigateTab }) => {
-	const [conversations, setConversations] = useState(INITIAL_CONVERSATIONS);
+	const [conversations, setConversations] = useState([]);
+	const [loading, setLoading] = useState(true);
+	const [error, setError] = useState(null);
 	const [selectedId, setSelectedId] = useState(null);
 	const [searchQuery, setSearchQuery] = useState("");
 
+	const fetchConversations = useCallback(async () => {
+		try {
+			setLoading(true);
+			setError(null);
+			const data = await getConversations();
+			const list = Array.isArray(data) ? data : [];
+			setConversations(list);
+			if (list.length > 0 && !selectedId) {
+				setSelectedId(list[0].id);
+			}
+		} catch (err) {
+			console.error("Failed to load conversations:", err);
+			setError(err.message || "Failed to load conversations");
+		} finally {
+			setLoading(false);
+		}
+	}, [selectedId]);
+
+	useEffect(() => {
+		fetchConversations();
+	}, [fetchConversations]);
+
 	const selectedConversation = conversations.find((c) => c.id === selectedId);
 
-	const handleSelectConversation = (id) => {
+	const handleSelectConversation = async (id) => {
 		setSelectedId(id);
 		// Clear unread count on open
 		setConversations((prev) =>
 			prev.map((c) => (c.id === id ? { ...c, unreadCount: 0 } : c))
 		);
+		try {
+			await markConversationRead(id);
+		} catch (err) {
+			console.error("Failed to mark conversation read:", err);
+		}
 	};
 
-	const handleSendMessage = (conversationId, text) => {
-		const newMsg = {
-			id: Date.now(),
+	const handleSendMessage = async (conversationId, text) => {
+		const tempId = "temp_" + Date.now();
+		const optimisticMsg = {
+			id: tempId,
 			text,
 			time: "Just now",
 			isMe: true,
 		};
 
+		// Optimistic update
 		setConversations((prev) =>
 			prev.map((c) =>
 				c.id === conversationId
@@ -180,17 +65,37 @@ const MessagesPage = ({ onNavigateTab }) => {
 							...c,
 							lastMessage: text,
 							time: "Just now",
-							messages: [...(c.messages || []), newMsg],
+							messages: [...(c.messages || []), optimisticMsg],
 					  }
 					: c
 			)
 		);
+
+		try {
+			const saved = await sendMessage(conversationId, text);
+			if (saved && saved.id) {
+				setConversations((prev) =>
+					prev.map((c) =>
+						c.id === conversationId
+							? {
+									...c,
+									messages: (c.messages || []).map((m) =>
+										m.id === tempId ? { ...m, id: saved.id, time: saved.time } : m
+									),
+							  }
+							: c
+					)
+				);
+			}
+		} catch (err) {
+			console.error("Failed to send message:", err);
+		}
 	};
 
 	const filteredConversations = conversations.filter(
 		(c) =>
-			c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-			c.lastMessage.toLowerCase().includes(searchQuery.toLowerCase())
+			(c.name || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+			(c.lastMessage || "").toLowerCase().includes(searchQuery.toLowerCase())
 	);
 
 	return (
@@ -231,29 +136,57 @@ const MessagesPage = ({ onNavigateTab }) => {
 								type="text"
 								value={searchQuery}
 								onChange={(e) => setSearchQuery(e.target.value)}
-								placeholder="Search conversations..."
-								className="w-full bg-[#12141e] border border-[#1e202d] focus:border-[#7c3aed] focus:ring-1 focus:ring-[#7c3aed]/20 rounded-xl pl-10 pr-4 py-2.5 text-xs sm:text-sm text-white placeholder-[#50536c] outline-none transition-colors"
+								placeholder="Search chats, students..."
+								className="w-full bg-[#12141e] border border-[#1e2130] focus:border-[#7c3aed] focus:ring-1 focus:ring-[#7c3aed]/20 rounded-xl pl-10 pr-4 py-2 text-xs text-white placeholder-[#50536c] outline-none transition-colors"
 							/>
 						</div>
 					</div>
 
+					{/* Error alert */}
+					{error && (
+						<div className="mx-4 p-3 bg-red-500/10 border border-red-500/20 text-red-400 text-xs rounded-xl flex items-center justify-between">
+							<span>{error}</span>
+							<button onClick={fetchConversations} className="text-red-300 underline font-semibold">
+								Retry
+							</button>
+						</div>
+					)}
+
 					{/* Conversations List */}
-					<div className="flex-1 overflow-y-auto px-3 py-2 flex flex-col gap-1">
-						{filteredConversations.map((conv) => (
-							<ConversationItem
-								key={conv.id}
-								conversation={conv}
-								isSelected={selectedId === conv.id}
-								onClick={() => handleSelectConversation(conv.id)}
-							/>
-						))}
+					<div className="flex-1 overflow-y-auto px-2 space-y-1">
+						{loading ? (
+							<div className="p-3 space-y-3">
+								{[1, 2, 3, 4, 5].map((n) => (
+									<div key={n} className="flex items-center gap-3 p-3 rounded-xl animate-pulse bg-[#12141e]/50">
+										<div className="w-10 h-10 rounded-full bg-[#1b1e2e] shrink-0" />
+										<div className="flex-1 space-y-2">
+											<div className="h-3 bg-[#1b1e2e] rounded w-1/2" />
+											<div className="h-2.5 bg-[#1b1e2e] rounded w-3/4" />
+										</div>
+									</div>
+								))}
+							</div>
+						) : filteredConversations.length > 0 ? (
+							filteredConversations.map((conv) => (
+								<ConversationItem
+									key={conv.id}
+									conversation={conv}
+									isSelected={conv.id === selectedId}
+									onClick={() => handleSelectConversation(conv.id)}
+								/>
+							))
+						) : (
+							<div className="p-6 text-center text-[#71748d] text-xs">
+								No conversations found
+							</div>
+						)}
 					</div>
 				</aside>
 
-				{/* Right Detail Pane */}
-				<div
-					className={`flex-1 flex flex-col h-full ${
-						selectedId ? "flex" : "hidden md:flex"
+				{/* Right Main Chat View */}
+				<main
+					className={`flex-1 flex flex-col h-full bg-[#07080b] ${
+						!selectedId ? "hidden md:flex" : "flex"
 					}`}>
 					{selectedConversation ? (
 						<ChatView
@@ -262,54 +195,30 @@ const MessagesPage = ({ onNavigateTab }) => {
 							onBack={() => setSelectedId(null)}
 						/>
 					) : (
-						/* Empty State (Matching screenshot exactly) */
-						<div className="flex-1 flex flex-col items-center justify-center p-8 text-center bg-[#07080b]">
-							{/* Chat Icon Container */}
-							<div className="w-14 h-14 rounded-2xl bg-[#141622] border border-[#202334] flex items-center justify-center text-[#8b8da4] mb-5 shadow-lg shadow-black/40">
+						<div className="flex-1 flex flex-col items-center justify-center text-center p-8 text-[#71748d]">
+							<div className="w-16 h-16 rounded-2xl bg-[#12141e] border border-[#202334] flex items-center justify-center text-[#a78bfa] mb-4">
 								<svg
-									className="w-6 h-6"
+									className="w-8 h-8"
 									fill="none"
 									viewBox="0 0 24 24"
 									stroke="currentColor">
 									<path
 										strokeLinecap="round"
 										strokeLinejoin="round"
-										strokeWidth={1.8}
+										strokeWidth={1.5}
 										d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
 									/>
 								</svg>
 							</div>
-
-							{/* Empty State Heading & Subtitle */}
-							<h3 className="text-base font-bold text-white tracking-tight mb-1.5">
+							<h3 className="text-base font-semibold text-white mb-1">
 								Select a conversation
 							</h3>
-							<p className="text-xs text-[#71748d] max-w-xs mb-6">
-								Choose from your messages to start chatting
+							<p className="text-xs max-w-sm">
+								Choose a classmate or club group from the left panel to start messaging in real-time.
 							</p>
-
-							{/* New Message CTA */}
-							<button
-								type="button"
-								onClick={() => handleSelectConversation(1)}
-								className="px-5 py-2.5 rounded-xl bg-[#7c3aed] hover:bg-[#6d28d9] text-white text-xs font-semibold shadow-lg shadow-purple-900/30 flex items-center gap-2 transition-all active:scale-[0.99] cursor-pointer">
-								<svg
-									className="w-4 h-4"
-									fill="none"
-									viewBox="0 0 24 24"
-									stroke="currentColor">
-									<path
-										strokeLinecap="round"
-										strokeLinejoin="round"
-										strokeWidth={2}
-										d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-									/>
-								</svg>
-								<span>New Message</span>
-							</button>
 						</div>
 					)}
-				</div>
+				</main>
 			</div>
 		</div>
 	);
