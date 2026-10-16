@@ -118,4 +118,74 @@ class CampusConnectApplicationTests {
         assertThat(meRes.getBody().isSuccess()).isTrue();
         assertThat(meRes.getBody().getData().get("email")).isEqualTo("tester@campus.edu");
     }
+
+    @Test
+    @DisplayName("Verify User Profile Retrieval, Editing, and Protected APIs")
+    void testUserProfileWorkflow() {
+        // 1. Register test user
+        RegisterRequest registerReq = new RegisterRequest();
+        registerReq.setName("Jordan Lee");
+        registerReq.setEmail("tester@campus.edu");
+        registerReq.setPassword("Password123!");
+        registerReq.setDepartment("Computer Science");
+        registerReq.setYearOfStudy(2);
+
+        ResponseEntity<ApiResponse<AuthResponse>> registerRes = restTemplate.exchange(
+                getBaseUrl() + "/auth/register",
+                HttpMethod.POST,
+                new HttpEntity<>(registerReq),
+                new ParameterizedTypeReference<ApiResponse<AuthResponse>>() {}
+        );
+        String token = registerRes.getBody().getData().getToken();
+        String userId = registerRes.getBody().getData().getId();
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBearerAuth(token);
+
+        // 2. GET /api/v1/users/me (authenticated)
+        ResponseEntity<ApiResponse<Map<String, Object>>> getProfileRes = restTemplate.exchange(
+                getBaseUrl() + "/users/me",
+                HttpMethod.GET,
+                new HttpEntity<>(headers),
+                new ParameterizedTypeReference<ApiResponse<Map<String, Object>>>() {}
+        );
+        assertThat(getProfileRes.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(getProfileRes.getBody().getData().get("name")).isEqualTo("Jordan Lee");
+
+        // 3. PUT /api/v1/users/me (update profile)
+        Map<String, Object> updateReq = Map.of(
+                "bio", "Passionate about full-stack engineering and AI",
+                "university", "Stanford University",
+                "skills", java.util.List.of("Java", "React", "MongoDB")
+        );
+
+        ResponseEntity<ApiResponse<Map<String, Object>>> updateRes = restTemplate.exchange(
+                getBaseUrl() + "/users/me",
+                HttpMethod.PUT,
+                new HttpEntity<>(updateReq, headers),
+                new ParameterizedTypeReference<ApiResponse<Map<String, Object>>>() {}
+        );
+        assertThat(updateRes.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(updateRes.getBody().getData().get("bio")).isEqualTo("Passionate about full-stack engineering and AI");
+        assertThat(updateRes.getBody().getData().get("university")).isEqualTo("Stanford University");
+
+        // 4. GET /api/v1/users/{id} (public profile check)
+        ResponseEntity<ApiResponse<Map<String, Object>>> publicRes = restTemplate.exchange(
+                getBaseUrl() + "/users/" + userId,
+                HttpMethod.GET,
+                new HttpEntity<>(headers),
+                new ParameterizedTypeReference<ApiResponse<Map<String, Object>>>() {}
+        );
+        assertThat(publicRes.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(publicRes.getBody().getData().get("university")).isEqualTo("Stanford University");
+
+        // 5. Unauthenticated request to /api/v1/users/me should fail
+        ResponseEntity<ApiResponse<Map<String, Object>>> unauthRes = restTemplate.exchange(
+                getBaseUrl() + "/users/me",
+                HttpMethod.GET,
+                null,
+                new ParameterizedTypeReference<ApiResponse<Map<String, Object>>>() {}
+        );
+        assertThat(unauthRes.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
+    }
 }

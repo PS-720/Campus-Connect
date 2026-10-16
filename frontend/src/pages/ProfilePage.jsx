@@ -1,78 +1,47 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Sidebar from "../components/layout/Sidebar";
 import PostCard from "../components/feed/PostCard";
 import NoteCard from "../components/notes/NoteCard";
 import CommunityCard from "../components/communities/CommunityCard";
 import EventCard from "../components/events/EventCard";
+import { getMyProfile, updateProfile } from "../services/userService";
 
 import hackathonImg from "../assets/hackathon.jpg";
 import roboticsImg from "../assets/robotics.jpg";
 import cameraImg from "../assets/camera.jpg";
 
-const PROFILE_DATA = {
-	name: "Alex Chen",
-	avatarLetter: "A",
-	department: "Computer Science",
-	year: "3rd Year",
-	college: "MIT Manipal",
-	bio: "Building the future with code and caffeine. Passionate about AI, open source, and building products that matter. Hackathon enthusiast 🚀",
-	skills: [
-		{ name: "React", style: "bg-[#241747] text-[#c4b5fd] border-[#3e2b70]" },
-		{ name: "Python", style: "bg-[#1f2033] text-[#a5b4fc] border-[#303352]" },
-		{ name: "Machine Learning", style: "bg-[#112a1f] text-[#4ade80] border-[#1a5338]" },
-		{ name: "GraphQL", style: "bg-[#332214] text-[#fb923c] border-[#57351a]" },
-	],
-	github: "@alexchen",
-	linkedin: "Alex Chen",
-	stats: {
-		posts: "48",
-		followers: "1.2k",
-		following: "342",
-		notes: "12",
+const DEFAULT_ACHIEVEMENTS = [
+	{
+		id: 1,
+		title: "Active Student",
+		style: "bg-[#251e12] text-[#f59e0b] border-[#483719]",
+		icon: (
+			<svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+				<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
+			</svg>
+		),
 	},
-	achievements: [
-		{
-			id: 1,
-			title: "Hackathon Winner",
-			style: "bg-[#251e12] text-[#f59e0b] border-[#483719]",
-			icon: (
-				<svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-					<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
-				</svg>
-			),
-		},
-		{
-			id: 2,
-			title: "Top Contributor",
-			style: "bg-[#241747] text-[#a78bfa] border-[#3e2b70]",
-			icon: (
-				<svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-					<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
-				</svg>
-			),
-		},
-		{
-			id: 3,
-			title: "Open Source Hero",
-			style: "bg-[#112a1f] text-[#4ade80] border-[#1a5338]",
-			icon: (
-				<svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-					<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-				</svg>
-			),
-		},
-		{
-			id: 4,
-			title: "Quick Learner",
-			style: "bg-[#332214] text-[#fb923c] border-[#57351a]",
-			icon: (
-				<svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-					<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-				</svg>
-			),
-		},
-	],
-};
+	{
+		id: 2,
+		title: "Top Contributor",
+		style: "bg-[#241747] text-[#a78bfa] border-[#3e2b70]",
+		icon: (
+			<svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+				<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
+			</svg>
+		),
+	},
+	{
+		id: 3,
+		title: "Campus Pioneer",
+		style: "bg-[#112a1f] text-[#4ade80] border-[#1a5338]",
+		icon: (
+			<svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+				<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+			</svg>
+		),
+	},
+];
 
 const PROFILE_POSTS = [
 	{
@@ -174,15 +143,130 @@ const PROFILE_EVENTS = [
 
 const TABS = ["Posts", "Notes", "Communities", "Events"];
 
-const ProfilePage = ({ onNavigateTab }) => {
+const ProfilePage = ({ onNavigateTab, currentUser, onUserUpdated }) => {
 	const [activeSubTab, setActiveSubTab] = useState("Posts");
 	const [isEditing, setIsEditing] = useState(false);
-	const [profile, setProfile] = useState(PROFILE_DATA);
+	const [isSaving, setIsSaving] = useState(false);
+	const [saveSuccess, setSaveSuccess] = useState(false);
+	const [errorMsg, setErrorMsg] = useState("");
 
-	const handleSaveProfile = (e) => {
-		e.preventDefault();
-		setIsEditing(false);
+	// Profile state initialized with currentUser or fallbacks
+	const [profile, setProfile] = useState(() => ({
+		name: currentUser?.name || "Student",
+		email: currentUser?.email || "",
+		department: currentUser?.department || "Computer Science",
+		yearOfStudy: currentUser?.yearOfStudy || 1,
+		university: currentUser?.university || "Campus University",
+		bio: currentUser?.bio || "Learning and building together on CampusConnect.",
+		skills: currentUser?.skills && currentUser.skills.length > 0 ? currentUser.skills : ["React", "Java", "Python"],
+		interests: currentUser?.interests || [],
+		stats: {
+			posts: "12",
+			followers: "128",
+			following: "84",
+			notes: "5",
+		},
+	}));
+
+	// Form editing state
+	const [editForm, setEditForm] = useState({
+		name: profile.name,
+		bio: profile.bio,
+		university: profile.university,
+		department: profile.department,
+		yearOfStudy: profile.yearOfStudy,
+		skillsText: profile.skills.join(", "),
+	});
+
+	// Fetch live profile from backend on mount
+	useEffect(() => {
+		let isMounted = true;
+		getMyProfile()
+			.then((data) => {
+				if (isMounted && data) {
+					setProfile((prev) => ({
+						...prev,
+						...data,
+						stats: prev.stats,
+					}));
+					setEditForm({
+						name: data.name || "",
+						bio: data.bio || "",
+						university: data.university || "Campus University",
+						department: data.department || "Computer Science",
+						yearOfStudy: data.yearOfStudy || 1,
+						skillsText: (data.skills || []).join(", "),
+					});
+				}
+			})
+			.catch((err) => {
+				console.warn("Could not load backend profile:", err.message);
+			});
+		return () => {
+			isMounted = false;
+		};
+	}, []);
+
+	const handleOpenEdit = () => {
+		setEditForm({
+			name: profile.name || "",
+			bio: profile.bio || "",
+			university: profile.university || "Campus University",
+			department: profile.department || "Computer Science",
+			yearOfStudy: profile.yearOfStudy || 1,
+			skillsText: (profile.skills || []).join(", "),
+		});
+		setErrorMsg("");
+		setSaveSuccess(false);
+		setIsEditing(true);
 	};
+
+	const handleSaveProfile = async (e) => {
+		e.preventDefault();
+		setIsSaving(true);
+		setErrorMsg("");
+
+		const skillsArray = editForm.skillsText
+			? editForm.skillsText.split(",").map((s) => s.trim()).filter(Boolean)
+			: [];
+
+		const payload = {
+			name: editForm.name.trim(),
+			bio: editForm.bio.trim(),
+			university: editForm.university.trim(),
+			department: editForm.department.trim(),
+			yearOfStudy: parseInt(editForm.yearOfStudy, 10) || 1,
+			skills: skillsArray,
+		};
+
+		try {
+			const updated = await updateProfile(payload);
+			setProfile((prev) => ({ ...prev, ...updated, stats: prev.stats }));
+			if (onUserUpdated) onUserUpdated(updated);
+			setSaveSuccess(true);
+			setTimeout(() => {
+				setIsEditing(false);
+				setSaveSuccess(false);
+			}, 900);
+		} catch (err) {
+			setErrorMsg(err.message || "Failed to save profile. Please try again.");
+		} finally {
+			setIsSaving(false);
+		}
+	};
+
+	const avatarLetter = profile.name ? profile.name.charAt(0).toUpperCase() : "U";
+	const formattedYear = profile.yearOfStudy
+		? `${profile.yearOfStudy}${
+				profile.yearOfStudy === 1
+					? "st"
+					: profile.yearOfStudy === 2
+					? "nd"
+					: profile.yearOfStudy === 3
+					? "rd"
+					: "th"
+		  } Year`
+		: "Student";
 
 	return (
 		<div className="min-h-screen bg-[#07080b] text-white flex">
@@ -198,41 +282,18 @@ const ProfilePage = ({ onNavigateTab }) => {
 				<main className="px-6 sm:px-10 pb-12 flex flex-col gap-6 max-w-5xl">
 					{/* Avatar + Action Buttons Row */}
 					<div className="flex items-end justify-between -mt-16 sm:-mt-20">
-						{/* Avatar with Camera icon */}
+						{/* Avatar */}
 						<div className="relative">
 							<div className="w-28 h-28 sm:w-32 sm:h-32 rounded-full bg-gradient-to-tr from-[#9333ea] to-[#c084fc] ring-4 ring-[#07080b] flex items-center justify-center text-4xl sm:text-5xl font-bold text-white shadow-2xl select-none">
-								{profile.avatarLetter}
+								{avatarLetter}
 							</div>
-							<button
-								type="button"
-								className="absolute bottom-1 right-1 w-8 h-8 rounded-full bg-[#804bdf] hover:bg-[#6d28d9] border-2 border-[#07080b] flex items-center justify-center text-white shadow-md cursor-pointer transition-colors"
-								title="Change avatar">
-								<svg
-									className="w-4 h-4"
-									fill="none"
-									viewBox="0 0 24 24"
-									stroke="currentColor">
-									<path
-										strokeLinecap="round"
-										strokeLinejoin="round"
-										strokeWidth={2}
-										d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"
-									/>
-									<path
-										strokeLinecap="round"
-										strokeLinejoin="round"
-										strokeWidth={2}
-										d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"
-									/>
-								</svg>
-							</button>
 						</div>
 
 						{/* Top Right Action Buttons: Edit Profile & Share */}
 						<div className="flex items-center gap-2.5">
 							<button
 								type="button"
-								onClick={() => setIsEditing(!isEditing)}
+								onClick={handleOpenEdit}
 								className="px-4 py-2.5 rounded-xl bg-[#141622] hover:bg-[#1c1f2e] border border-[#202334] text-xs font-semibold text-white flex items-center gap-2 shadow-sm transition-colors cursor-pointer">
 								<svg
 									className="w-3.5 h-3.5 text-[#8b8da4]"
@@ -246,25 +307,7 @@ const ProfilePage = ({ onNavigateTab }) => {
 										d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
 									/>
 								</svg>
-								<span>{isEditing ? "Cancel" : "Edit Profile"}</span>
-							</button>
-
-							<button
-								type="button"
-								className="p-2.5 rounded-xl bg-[#141622] hover:bg-[#1c1f2e] border border-[#202334] text-[#8b8da4] hover:text-white transition-colors cursor-pointer"
-								title="Share Profile">
-								<svg
-									className="w-4 h-4"
-									fill="none"
-									viewBox="0 0 24 24"
-									stroke="currentColor">
-									<path
-										strokeLinecap="round"
-										strokeLinejoin="round"
-										strokeWidth={2}
-										d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"
-									/>
-								</svg>
+								<span>Edit Profile</span>
 							</button>
 						</div>
 					</div>
@@ -276,7 +319,7 @@ const ProfilePage = ({ onNavigateTab }) => {
 								{profile.name}
 							</h1>
 							<p className="text-xs text-[#8b8da4] mt-0.5">
-								{profile.department} · {profile.year} · {profile.college}
+								{profile.department} · {formattedYear} · {profile.university}
 							</p>
 						</div>
 
@@ -287,61 +330,54 @@ const ProfilePage = ({ onNavigateTab }) => {
 
 						{/* Skills Pills */}
 						<div className="flex flex-wrap gap-2 pt-1">
-							{profile.skills.map((skill) => (
-								<span
-									key={skill.name}
-									className={`px-3 py-1 rounded-md text-xs font-semibold border ${skill.style}`}>
-									{skill.name}
-								</span>
-							))}
+							{profile.skills &&
+								profile.skills.map((skill, idx) => {
+									const skillName = typeof skill === "object" ? skill.name : skill;
+									return (
+										<span
+											key={idx}
+											className="px-3 py-1 rounded-md text-xs font-semibold border bg-[#241747] text-[#c4b5fd] border-[#3e2b70]">
+											{skillName}
+										</span>
+									);
+								})}
 						</div>
 
-						{/* Social / Handles */}
-						<div className="flex items-center gap-4 text-xs text-[#8b8da4] pt-1">
-							{/* Github */}
-							<div className="flex items-center gap-1.5 hover:text-white transition-colors cursor-pointer">
-								<svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-									<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
-								</svg>
-								<span>{profile.github}</span>
-							</div>
-
-							{/* LinkedIn */}
-							<div className="flex items-center gap-1.5 hover:text-white transition-colors cursor-pointer">
-								<svg className="w-3.5 h-3.5 text-[#0a66c2]" fill="currentColor" viewBox="0 0 24 24">
-									<path d="M19 3a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14m-.5 15.5v-5.3a3.26 3.26 0 0 0-3.26-3.26c-.85 0-1.84.52-2.28 1.3v-1.11h-2.79v8.37h2.79v-4.93c0-.77.62-1.4 1.39-1.4a1.4 1.4 0 0 1 1.4 1.4v4.93h2.75M6.46 8.76a1.64 1.64 0 1 0-.02-3.28 1.64 1.64 0 0 0 .02 3.28M5.07 18.5h2.79v-8.37H5.07v8.37Z" />
-								</svg>
-								<span>{profile.linkedin}</span>
-							</div>
+						{/* Email badge */}
+						<div className="flex items-center gap-2 text-xs text-[#8b8da4] pt-1">
+							<svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+								<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+							</svg>
+							<span>{profile.email}</span>
 						</div>
 					</div>
 
-					{/* 4 Stats Cards */}
+					{/* Stats Cards */}
 					<div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5">
 						<div className="p-4 rounded-2xl bg-[#0d0f15] border border-[#1b1e2a] flex flex-col items-center justify-center text-center gap-1 shadow-sm">
 							<span className="text-xl sm:text-2xl font-bold text-[#c4b5fd]">
-								{profile.stats.posts}
+								{profile.stats?.posts || "0"}
 							</span>
 							<span className="text-xs text-[#71748d]">Posts</span>
 						</div>
 
 						<div className="p-4 rounded-2xl bg-[#0d0f15] border border-[#1b1e2a] flex flex-col items-center justify-center text-center gap-1 shadow-sm">
 							<span className="text-xl sm:text-2xl font-bold text-[#c4b5fd]">
-								{profile.stats.followers}
+								{profile.stats?.followers || "0"}
 							</span>
 							<span className="text-xs text-[#71748d]">Followers</span>
 						</div>
 
 						<div className="p-4 rounded-2xl bg-[#0d0f15] border border-[#1b1e2a] flex flex-col items-center justify-center text-center gap-1 shadow-sm">
 							<span className="text-xl sm:text-2xl font-bold text-[#c4b5fd]">
-								{profile.stats.following}
+								{profile.stats?.following || "0"}
 							</span>
 							<span className="text-xs text-[#71748d]">Following</span>
 						</div>
 
 						<div className="p-4 rounded-2xl bg-[#0d0f15] border border-[#1b1e2a] flex flex-col items-center justify-center text-center gap-1 shadow-sm">
 							<span className="text-xl sm:text-2xl font-bold text-[#c4b5fd]">
-								{profile.stats.notes}
+								{profile.stats?.notes || "0"}
 							</span>
 							<span className="text-xs text-[#71748d]">Notes</span>
 						</div>
@@ -349,12 +385,9 @@ const ProfilePage = ({ onNavigateTab }) => {
 
 					{/* Achievements Section */}
 					<div className="flex flex-col gap-3">
-						<h3 className="text-sm font-bold text-white tracking-tight">
-							Achievements
-						</h3>
-
+						<h3 className="text-sm font-bold text-white tracking-tight">Achievements</h3>
 						<div className="flex flex-wrap gap-2.5">
-							{profile.achievements.map((ach) => (
+							{DEFAULT_ACHIEVEMENTS.map((ach) => (
 								<div
 									key={ach.id}
 									className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold border ${ach.style} shadow-sm select-none`}>
@@ -406,11 +439,7 @@ const ProfilePage = ({ onNavigateTab }) => {
 						{activeSubTab === "Communities" && (
 							<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
 								{PROFILE_COMMUNITIES.map((comm) => (
-									<CommunityCard
-										key={comm.id}
-										community={comm}
-										onToggleJoin={() => {}}
-									/>
+									<CommunityCard key={comm.id} community={comm} onToggleJoin={() => {}} />
 								))}
 							</div>
 						)}
@@ -418,17 +447,13 @@ const ProfilePage = ({ onNavigateTab }) => {
 						{activeSubTab === "Events" && (
 							<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
 								{PROFILE_EVENTS.map((event) => (
-									<EventCard
-										key={event.id}
-										event={event}
-										onToggleRegister={() => {}}
-									/>
+									<EventCard key={event.id} event={event} onToggleRegister={() => {}} />
 								))}
 							</div>
 						)}
 					</div>
 
-					{/* Quick Edit Profile Modal */}
+					{/* Edit Profile Modal */}
 					{isEditing && (
 						<div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm">
 							<div className="w-full max-w-lg bg-[#0e1017] border border-[#212435] rounded-2xl p-6 shadow-2xl flex flex-col gap-5">
@@ -437,36 +462,89 @@ const ProfilePage = ({ onNavigateTab }) => {
 									<button
 										type="button"
 										onClick={() => setIsEditing(false)}
-										className="text-[#71748d] hover:text-white">
+										className="text-[#71748d] hover:text-white cursor-pointer">
 										✕
 									</button>
 								</div>
 
+								{errorMsg && (
+									<div className="p-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-xs">
+										{errorMsg}
+									</div>
+								)}
+
+								{saveSuccess && (
+									<div className="p-3 rounded-xl bg-green-500/10 border border-green-500/30 text-green-400 text-xs">
+										Profile updated successfully!
+									</div>
+								)}
+
 								<form onSubmit={handleSaveProfile} className="flex flex-col gap-4">
 									<div className="flex flex-col gap-1.5">
+										<label className="text-xs font-semibold text-[#8b8da4]">Full Name</label>
+										<input
+											type="text"
+											required
+											value={editForm.name}
+											onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+											className="bg-[#141622] border border-[#23263a] rounded-xl px-3.5 py-2.5 text-xs text-white outline-none focus:border-[#7c3aed]"
+										/>
+									</div>
+
+									<div className="grid grid-cols-2 gap-3">
+										<div className="flex flex-col gap-1.5">
+											<label className="text-xs font-semibold text-[#8b8da4]">University</label>
+											<input
+												type="text"
+												value={editForm.university}
+												onChange={(e) => setEditForm({ ...editForm, university: e.target.value })}
+												className="bg-[#141622] border border-[#23263a] rounded-xl px-3.5 py-2.5 text-xs text-white outline-none focus:border-[#7c3aed]"
+											/>
+										</div>
+										<div className="flex flex-col gap-1.5">
+											<label className="text-xs font-semibold text-[#8b8da4]">Department</label>
+											<input
+												type="text"
+												value={editForm.department}
+												onChange={(e) => setEditForm({ ...editForm, department: e.target.value })}
+												className="bg-[#141622] border border-[#23263a] rounded-xl px-3.5 py-2.5 text-xs text-white outline-none focus:border-[#7c3aed]"
+											/>
+										</div>
+									</div>
+
+									<div className="flex flex-col gap-1.5">
+										<label className="text-xs font-semibold text-[#8b8da4]">Year of Study</label>
+										<select
+											value={editForm.yearOfStudy}
+											onChange={(e) => setEditForm({ ...editForm, yearOfStudy: e.target.value })}
+											className="bg-[#141622] border border-[#23263a] rounded-xl px-3.5 py-2.5 text-xs text-white outline-none focus:border-[#7c3aed]">
+											<option value="1">1st Year</option>
+											<option value="2">2nd Year</option>
+											<option value="3">3rd Year</option>
+											<option value="4">4th Year</option>
+											<option value="5">5th Year / Graduate</option>
+										</select>
+									</div>
+
+									<div className="flex flex-col gap-1.5">
 										<label className="text-xs font-semibold text-[#8b8da4]">
-											Full Name
+											Skills (comma separated)
 										</label>
 										<input
 											type="text"
-											value={profile.name}
-											onChange={(e) =>
-												setProfile({ ...profile, name: e.target.value })
-											}
+											placeholder="e.g. React, Java, Machine Learning"
+											value={editForm.skillsText}
+											onChange={(e) => setEditForm({ ...editForm, skillsText: e.target.value })}
 											className="bg-[#141622] border border-[#23263a] rounded-xl px-3.5 py-2.5 text-xs text-white outline-none focus:border-[#7c3aed]"
 										/>
 									</div>
 
 									<div className="flex flex-col gap-1.5">
-										<label className="text-xs font-semibold text-[#8b8da4]">
-											Bio
-										</label>
+										<label className="text-xs font-semibold text-[#8b8da4]">Bio</label>
 										<textarea
 											rows={3}
-											value={profile.bio}
-											onChange={(e) =>
-												setProfile({ ...profile, bio: e.target.value })
-											}
+											value={editForm.bio}
+											onChange={(e) => setEditForm({ ...editForm, bio: e.target.value })}
 											className="bg-[#141622] border border-[#23263a] rounded-xl px-3.5 py-2 text-xs text-white outline-none focus:border-[#7c3aed] resize-none"
 										/>
 									</div>
@@ -475,13 +553,18 @@ const ProfilePage = ({ onNavigateTab }) => {
 										<button
 											type="button"
 											onClick={() => setIsEditing(false)}
-											className="px-4 py-2 rounded-xl text-xs font-semibold text-[#8b8da4] hover:text-white">
+											disabled={isSaving}
+											className="px-4 py-2 rounded-xl text-xs font-semibold text-[#8b8da4] hover:text-white cursor-pointer">
 											Cancel
 										</button>
 										<button
 											type="submit"
-											className="px-5 py-2.5 rounded-xl text-xs font-semibold bg-[#7c3aed] hover:bg-[#6d28d9] text-white">
-											Save Changes
+											disabled={isSaving}
+											className="px-5 py-2.5 rounded-xl text-xs font-semibold bg-[#7c3aed] hover:bg-[#6d28d9] text-white disabled:opacity-50 cursor-pointer flex items-center gap-2">
+											{isSaving && (
+												<div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+											)}
+											<span>{isSaving ? "Saving..." : "Save Changes"}</span>
 										</button>
 									</div>
 								</form>

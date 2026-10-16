@@ -1,17 +1,26 @@
 import apiClient from "./apiClient";
 
 /**
- * Get public profile of any user by ID.
+ * Get current authenticated user profile.
+ */
+export async function getMyProfile() {
+  const response = await apiClient.get("/users/me");
+  return response.data;
+}
+
+/**
+ * Get public profile of any user by ID, or self if userId is "me".
  * @param {string} userId
  */
-export async function getUserProfile(userId) {
-  const response = await apiClient.get(`/users/${userId}`);
+export async function getUserProfile(userId = "me") {
+  const endpoint = userId === "me" ? "/users/me" : `/users/${userId}`;
+  const response = await apiClient.get(endpoint);
   return response.data;
 }
 
 /**
  * Update own profile (requires auth).
- * @param {{ name?, bio?, university?, department?, yearOfStudy?, skills?, interests? }} data
+ * @param {{ name?, bio?, university?, department?, yearOfStudy?, skills?, interests?, avatar? }} data
  */
 export async function updateProfile(data) {
   const response = await apiClient.put("/users/me", data);
