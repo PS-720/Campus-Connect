@@ -1,126 +1,116 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import Sidebar from "../components/layout/Sidebar";
 import Header from "../components/layout/Header";
 import CategoryPills from "../components/communities/CategoryPills";
 import CommunityCard from "../components/communities/CommunityCard";
+import { getCommunities, toggleJoin } from "../services/communityService";
 
-import roboticsImg from "../assets/robotics.jpg";
-import cameraImg from "../assets/camera.jpg";
-import businessImg from "../assets/business.jpg";
-import musicImg from "../assets/music.jpg";
-import sportsImg from "../assets/sports.jpg";
-
-const INITIAL_COMMUNITIES = [
-	{
-		id: 1,
-		name: "Coding Club",
-		members: "1,247 members",
-		category: "Technology",
-		description:
-			"Weekly coding challenges, hackathon prep, and open-source projects.",
-		image:
-			"https://images.unsplash.com/photo-1555066931-4365d14bab8c?q=80&w=800&auto=format&fit=crop",
-		isJoined: true,
-		icon: (
-			<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-				<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
-			</svg>
-		),
-	},
-	{
-		id: 2,
-		name: "AI & Robotics",
-		members: "856 members",
-		category: "Technology",
-		description:
-			"Exploring machine learning, computer vision, and autonomous systems.",
-		image: roboticsImg,
-		isJoined: false,
-		icon: (
-			<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-				<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" />
-			</svg>
-		),
-	},
-	{
-		id: 3,
-		name: "Photography Club",
-		members: "642 members",
-		category: "Arts",
-		description:
-			"Capture moments, share techniques, and explore visual storytelling.",
-		image: cameraImg,
-		isJoined: true,
-		icon: (
-			<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-				<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
-				<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
-			</svg>
-		),
-	},
-	{
-		id: 4,
-		name: "Entrepreneurship Club",
-		members: "934 members",
-		category: "Business",
-		description:
-			"Turning ideas into startups. Pitching, networking, and funding.",
-		image: businessImg,
-		isJoined: false,
-		icon: (
-			<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-				<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
-			</svg>
-		),
-	},
-	{
-		id: 5,
-		name: "Music Society",
-		members: "512 members",
-		category: "Arts",
-		description:
-			"Jam sessions, performances, and music production workshops.",
-		image: musicImg,
-		isJoined: false,
-		icon: (
-			<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-				<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
-			</svg>
-		),
-	},
-	{
-		id: 6,
-		name: "Sports Club",
-		members: "1,089 members",
-		category: "Sports",
-		description:
-			"Inter-college sports, fitness challenges, and team tournaments.",
-		image: sportsImg,
-		isJoined: false,
-		icon: (
-			<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-				<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
-			</svg>
-		),
-	},
+// ── Fallback cover images (shown when a community has no banner set) ──────────
+const FALLBACK_IMAGES = [
+	"https://images.unsplash.com/photo-1555066931-4365d14bab8c?q=80&w=800&auto=format&fit=crop",
+	"https://images.unsplash.com/photo-1485827404703-89b55fcc595e?q=80&w=800&auto=format&fit=crop",
+	"https://images.unsplash.com/photo-1542038784456-1ea8e935640e?q=80&w=800&auto=format&fit=crop",
+	"https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?q=80&w=800&auto=format&fit=crop",
+	"https://images.unsplash.com/photo-1511988617509-a57c8a288659?q=80&w=800&auto=format&fit=crop",
+	"https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?q=80&w=800&auto=format&fit=crop",
 ];
 
-const CommunitiesPage = ({ onNavigateTab }) => {
-	const [communities, setCommunities] = useState(INITIAL_COMMUNITIES);
-	const [activeCategory, setActiveCategory] = useState("All");
+function fallbackImage(index) {
+	return FALLBACK_IMAGES[index % FALLBACK_IMAGES.length];
+}
 
-	const handleToggleJoin = (id) => {
-		setCommunities((prev) =>
-			prev.map((c) => (c.id === id ? { ...c, isJoined: !c.isJoined } : c))
-		);
+/** Map a backend CommunityResponse to the shape CommunityCard expects. */
+function adaptCommunity(c, index) {
+	return {
+		...c,
+		// CommunityCard reads `members` as a display string
+		members:
+			c.memberCount !== undefined
+				? `${c.memberCount.toLocaleString()} member${c.memberCount !== 1 ? "s" : ""}`
+				: c.members || "0 members",
+		// CommunityCard reads `image` for the banner
+		image: c.banner || fallbackImage(index),
+		// CommunityCard reads `isJoined`
+		isJoined: c.isMember ?? false,
+		// Provide a generic icon if none stored
+		icon: (
+			<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+				<path
+					strokeLinecap="round"
+					strokeLinejoin="round"
+					strokeWidth={1.8}
+					d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
+				/>
+			</svg>
+		),
 	};
+}
 
-	const filteredCommunities =
-		activeCategory === "All"
-			? communities
-			: communities.filter(
-					(c) => c.category.toLowerCase() === activeCategory.toLowerCase()
-			  );
+const CommunitiesPage = ({ onNavigateTab, currentUser }) => {
+	const [communities, setCommunities] = useState([]);
+	const [activeCategory, setActiveCategory] = useState("All");
+	const [loading, setLoading] = useState(true);
+	const [error, setError] = useState(null);
+
+	const loadCommunities = useCallback(async () => {
+		setLoading(true);
+		setError(null);
+		try {
+			const data = await getCommunities(activeCategory);
+			const adapted = (Array.isArray(data) ? data : []).map(adaptCommunity);
+			setCommunities(adapted);
+		} catch (err) {
+			console.error("Failed to load communities:", err);
+			setError("Could not load communities. Please try again.");
+		} finally {
+			setLoading(false);
+		}
+	}, [activeCategory]);
+
+	useEffect(() => {
+		loadCommunities();
+	}, [loadCommunities]);
+
+	const handleToggleJoin = async (id) => {
+		// Optimistic toggle
+		setCommunities((prev) =>
+			prev.map((c) =>
+				c.id === id
+					? {
+							...c,
+							isJoined: !c.isJoined,
+							memberCount: c.isJoined
+								? Math.max(0, (c.memberCount || 0) - 1)
+								: (c.memberCount || 0) + 1,
+					  }
+					: c
+			)
+		);
+
+		try {
+			const updated = await toggleJoin(id);
+			// Sync authoritative state from server
+			setCommunities((prev) =>
+				prev.map((c) => (c.id === id ? adaptCommunity(updated, prev.indexOf(c)) : c))
+			);
+		} catch (err) {
+			console.error("Failed to toggle join:", err);
+			// Roll back
+			setCommunities((prev) =>
+				prev.map((c) =>
+					c.id === id
+						? {
+								...c,
+								isJoined: !c.isJoined,
+								memberCount: c.isJoined
+									? Math.max(0, (c.memberCount || 0) - 1)
+									: (c.memberCount || 0) + 1,
+						  }
+						: c
+				)
+			);
+		}
+	};
 
 	return (
 		<div className="min-h-screen bg-[#07080b] text-white flex">
@@ -133,7 +123,14 @@ const CommunitiesPage = ({ onNavigateTab }) => {
 				<Header
 					title="Communities"
 					subtitle="Find your tribe on campus"
-					user={{ name: "Alex Chen", avatar: "A" }}
+					user={
+						currentUser
+							? {
+									name: currentUser.fullName || currentUser.username || "You",
+									avatar: (currentUser.fullName || currentUser.username || "U")[0].toUpperCase(),
+							  }
+							: { name: "Campus Connect", avatar: "C" }
+					}
 				/>
 
 				{/* Main Content Area */}
@@ -145,15 +142,47 @@ const CommunitiesPage = ({ onNavigateTab }) => {
 					/>
 
 					{/* Communities Cards Grid */}
-					<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-						{filteredCommunities.map((community) => (
-							<CommunityCard
-								key={community.id}
-								community={community}
-								onToggleJoin={handleToggleJoin}
-							/>
-						))}
-					</div>
+					{loading ? (
+						<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+							{[1, 2, 3, 4].map((n) => (
+								<div
+									key={n}
+									className="bg-[#0d0f15] border border-[#1b1e2a] rounded-2xl overflow-hidden animate-pulse">
+									<div className="h-40 bg-[#12141e]" />
+									<div className="p-5 flex flex-col gap-3">
+										<div className="h-3 bg-[#1b1e2a] rounded w-2/3" />
+										<div className="h-2 bg-[#1b1e2a] rounded w-1/2" />
+										<div className="h-2 bg-[#1b1e2a] rounded w-full" />
+										<div className="h-8 bg-[#1b1e2a] rounded-xl mt-2" />
+									</div>
+								</div>
+							))}
+						</div>
+					) : error ? (
+						<div className="text-center py-16 text-[#ef4444]">
+							<p className="mb-3">{error}</p>
+							<button
+								onClick={loadCommunities}
+								className="px-4 py-2 bg-[#1b1e2a] hover:bg-[#22263a] rounded-lg text-sm text-[#d4d6e2] transition-colors">
+								Retry
+							</button>
+						</div>
+					) : communities.length === 0 ? (
+						<div className="text-center py-20 text-[#595c73]">
+							<p className="text-lg font-semibold mb-1">No communities found</p>
+							<p className="text-sm">Be the first to create one!</p>
+						</div>
+					) : (
+						<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+							{communities.map((community) => (
+								<CommunityCard
+									key={community.id}
+									community={community}
+									onToggleJoin={handleToggleJoin}
+								/>
+							))}
+						</div>
+					)}
 				</main>
 			</div>
 		</div>

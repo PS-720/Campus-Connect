@@ -1,24 +1,27 @@
 import apiClient from "./apiClient";
 
 /**
- * Get all communities (public).
+ * Fetch all communities, optionally filtered by category.
+ * @param {string} [category] - e.g. "Technology". Omit or pass "All" for all.
  */
-export async function getCommunities(params = {}) {
+export async function getCommunities(category) {
+  const params = category && category !== "All" ? { category } : {};
   const response = await apiClient.get("/communities", { params });
   return response.data;
 }
 
 /**
- * Get a single community by ID.
+ * Get a single community by id.
+ * @param {string} id
  */
-export async function getCommunity(id) {
+export async function getCommunityById(id) {
   const response = await apiClient.get(`/communities/${id}`);
   return response.data;
 }
 
 /**
  * Create a new community (requires auth).
- * @param {{ name, description, category, tags?, icon?, banner?, isPrivate? }} data
+ * @param {{ name: string, description: string, category: string, tags?: string[], isPrivate?: boolean }} data
  */
 export async function createCommunity(data) {
   const response = await apiClient.post("/communities", data);
@@ -26,17 +29,18 @@ export async function createCommunity(data) {
 }
 
 /**
- * Join a community (requires auth).
+ * Toggle join / leave a community (single endpoint on backend).
+ * @param {string} communityId
  */
-export async function joinCommunity(id) {
-  const response = await apiClient.post(`/communities/${id}/join`);
+export async function toggleJoin(communityId) {
+  const response = await apiClient.post(`/communities/${communityId}/join`);
   return response.data;
 }
 
 /**
- * Leave a community (requires auth).
+ * Delete a community (moderator only).
+ * @param {string} communityId
  */
-export async function leaveCommunity(id) {
-  const response = await apiClient.delete(`/communities/${id}/leave`);
-  return response.data;
+export async function deleteCommunity(communityId) {
+  await apiClient.delete(`/communities/${communityId}`);
 }
