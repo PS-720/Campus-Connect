@@ -1,14 +1,35 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import Sidebar from "../components/layout/Sidebar";
 import PostCard from "../components/feed/PostCard";
 import NoteCard from "../components/notes/NoteCard";
 import CommunityCard from "../components/communities/CommunityCard";
 import EventCard from "../components/events/EventCard";
 import { getMyProfile, updateProfile } from "../services/userService";
+import { getEvents, registerForEvent, unregisterFromEvent } from "../services/eventService";
+import { getCommunities, toggleJoin } from "../services/communityService";
+import { getNotes } from "../services/noteService";
+import { getFeed } from "../services/postService";
 
 import hackathonImg from "../assets/hackathon.jpg";
 import roboticsImg from "../assets/robotics.jpg";
+import businessImg from "../assets/business.jpg";
 import cameraImg from "../assets/camera.jpg";
+import sportsImg from "../assets/sports.jpg";
+
+const IMAGE_MAP = {
+	hackathon: hackathonImg,
+	robotics: roboticsImg,
+	business: businessImg,
+	camera: cameraImg,
+	sports: sportsImg,
+};
+
+const resolveEventImage = (img) => {
+	if (!img) return hackathonImg;
+	const key = typeof img === "string" ? img.toLowerCase() : "";
+	if (IMAGE_MAP[key]) return IMAGE_MAP[key];
+	return img;
+};
 
 const DEFAULT_ACHIEVEMENTS = [
 	{
@@ -168,6 +189,12 @@ const ProfilePage = ({ onNavigateTab, currentUser, onUserUpdated }) => {
 		},
 	}));
 
+	const [registeredEvents, setRegisteredEvents] = useState([]);
+	const [userCommunities, setUserCommunities] = useState([]);
+	const [userNotes, setUserNotes] = useState([]);
+	const [userPosts, setUserPosts] = useState([]);
+	const [contentLoading, setContentLoading] = useState(false);
+
 	// Form editing state
 	const [editForm, setEditForm] = useState({
 		name: profile.name,
@@ -178,7 +205,39 @@ const ProfilePage = ({ onNavigateTab, currentUser, onUserUpdated }) => {
 		skillsText: profile.skills.join(", "),
 	});
 
-	// Fetch live profile from backend on mount
+	const loadUserData = useCallback(async () => {
+		try {
+			setContentLoading(true);
+			const [eventsRes, commsRes, notesRes, feedRes] = await Promise.allSettled([
+				getEvents(),
+				getCommunities(),
+				getNotes(),
+				getFeed(),
+			]);
+
+			if (eventsRes.status === "fulfilled" && Array.isArray(eventsRes.value)) {
+				setRegisteredEvents(eventsRes.value.filter((ev) => ev.isRegistered));
+			}
+
+			if (commsRes.status === "fulfilled" && Array.isArray(commsRes.value)) {
+				setUserCommunities(commsRes.value.filter((c) => c.isJoined));
+			}
+
+			if (notesRes.status === "fulfilled" && Array.isArray(notesRes.value)) {
+				setUserNotes(notesRes.value);
+			}
+
+			if (feedRes.status === "fulfilled" && Array.isArray(feedRes.value)) {
+				setUserPosts(feedRes.value);
+			}
+		} catch (err) {
+			console.warn("Could not load user relations:", err);
+		} finally {
+			setContentLoading(false);
+		}
+	}, []);
+
+	// Fetch live profile and user relation data on mount
 	useEffect(() => {
 		let isMounted = true;
 		getMyProfile()
@@ -202,10 +261,37 @@ const ProfilePage = ({ onNavigateTab, currentUser, onUserUpdated }) => {
 			.catch((err) => {
 				console.warn("Could not load backend profile:", err.message);
 			});
+
+		loadUserData();
+
 		return () => {
 			isMounted = false;
 		};
-	}, []);
+	}, [loadUserData]);
+
+	const handleToggleEventRegister = async (eventId) => {
+		const target = registeredEvents.find((ev) => ev.id === eventId);
+		if (!target) return;
+
+		setRegisteredEvents((prev) => prev.filter((ev) => ev.id !== eventId));
+
+		try {
+			await unregisterFromEvent(eventId);
+		} catch (err) {
+			console.error("Failed to unregister event:", err);
+			loadUserData();
+		}
+	};
+
+	const handleToggleJoinCommunity = async (commId) => {
+		setUserCommunities((prev) => prev.filter((c) => c.id !== commId));
+		try {
+			await toggleJoin(commId);
+		} catch (err) {
+			console.error("Failed to toggle community:", err);
+			loadUserData();
+		}
+	};
 
 	const handleOpenEdit = () => {
 		setEditForm({
@@ -421,35 +507,91 @@ const ProfilePage = ({ onNavigateTab, currentUser, onUserUpdated }) => {
 					{/* Tab Content Panel */}
 					<div className="flex flex-col gap-4">
 						{activeSubTab === "Posts" && (
-							<div className="flex flex-col gap-4">
-								{PROFILE_POSTS.map((post) => (
-									<PostCard key={post.id} post={post} />
-								))}
-							</div>
+							userPosts.length > 0 ? (
+								<div className="flex flex-col gap-4">
+									{userPosts.map((post) => (
+										<PostCard key={post.id} post={post} />
+									))}
+								</div>
+							) : (
+								<div className="p-8 text-center bg-[#0d0f15] border border-[#1b1e2a] rounded-2xl flex flex-col items-center justify-center gap-2">
+									<p className="text-sm font-semibold text-white">No posts shared yet</p>
+									<p className="text-xs text-[#71748d]">Share campus updates, questions, or achievements with peers.</p>
+								</div>
+							)
 						)}
 
 						{activeSubTab === "Notes" && (
-							<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-								{PROFILE_NOTES.map((note) => (
-									<NoteCard key={note.id} note={note} />
-								))}
-							</div>
+							userNotes.length > 0 ? (
+								<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+									{userNotes.map((note) => (
+										<NoteCard key={note.id} note={note} />
+									))}
+								</div>
+							) : (
+								<div className="p-8 text-center bg-[#0d0f15] border border-[#1b1e2a] rounded-2xl flex flex-col items-center justify-center gap-3">
+									<p className="text-sm font-semibold text-white">No notes uploaded yet</p>
+									<p className="text-xs text-[#71748d]">Share study materials, past exam guides, and lecture summaries.</p>
+									<button
+										onClick={() => onNavigateTab("Notes")}
+										className="px-4 py-2 rounded-xl text-xs font-semibold bg-[#7c3aed] text-white hover:bg-[#6d28d9] transition-colors cursor-pointer">
+										Upload Course Notes
+									</button>
+								</div>
+							)
 						)}
 
 						{activeSubTab === "Communities" && (
-							<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-								{PROFILE_COMMUNITIES.map((comm) => (
-									<CommunityCard key={comm.id} community={comm} onToggleJoin={() => {}} />
-								))}
-							</div>
+							userCommunities.length > 0 ? (
+								<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+									{userCommunities.map((comm) => (
+										<CommunityCard
+											key={comm.id}
+											community={comm}
+											onToggleJoin={() => handleToggleJoinCommunity(comm.id)}
+										/>
+									))}
+								</div>
+							) : (
+								<div className="p-8 text-center bg-[#0d0f15] border border-[#1b1e2a] rounded-2xl flex flex-col items-center justify-center gap-3">
+									<p className="text-sm font-semibold text-white">You haven't joined any communities yet</p>
+									<p className="text-xs text-[#71748d]">Connect with campus clubs, technology circles, and hobby groups.</p>
+									<button
+										onClick={() => onNavigateTab("Communities")}
+										className="px-4 py-2 rounded-xl text-xs font-semibold bg-[#7c3aed] text-white hover:bg-[#6d28d9] transition-colors cursor-pointer">
+										Explore Communities
+									</button>
+								</div>
+							)
 						)}
 
 						{activeSubTab === "Events" && (
-							<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-								{PROFILE_EVENTS.map((event) => (
-									<EventCard key={event.id} event={event} onToggleRegister={() => {}} />
-								))}
-							</div>
+							registeredEvents.length > 0 ? (
+								<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+									{registeredEvents.map((event) => (
+										<EventCard
+											key={event.id}
+											event={{ ...event, image: resolveEventImage(event.image) }}
+											onToggleRegister={() => handleToggleEventRegister(event.id)}
+										/>
+									))}
+								</div>
+							) : (
+								<div className="p-8 text-center bg-[#0d0f15] border border-[#1b1e2a] rounded-2xl flex flex-col items-center justify-center gap-3">
+									<div className="w-12 h-12 rounded-xl bg-[#141622] flex items-center justify-center text-[#7c3aed]">
+										<svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+											<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+										</svg>
+									</div>
+									<p className="text-sm font-semibold text-white">No registered events yet</p>
+									<p className="text-xs text-[#71748d] max-w-sm">When you register for hackathons, workshops, or sports tournaments, they will appear right here.</p>
+									<button
+										onClick={() => onNavigateTab("Events")}
+										className="px-4 py-2 rounded-xl text-xs font-semibold bg-[#7c3aed] text-white hover:bg-[#6d28d9] transition-colors cursor-pointer">
+										Discover Campus Events
+									</button>
+								</div>
+							)
 						)}
 					</div>
 

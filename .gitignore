@@ -41,3 +41,8 @@ backend/.env
 .vscode/
 .DS_Store
 Thumbs.db
+desktop.ini
+
+# Uploaded media (local storage)
+backend/uploads/
+

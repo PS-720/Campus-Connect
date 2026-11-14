@@ -34,12 +34,6 @@ public class ConversationResponse {
         res.setLastMessage(conv.getLastMessage() != null ? conv.getLastMessage() : "");
         res.setOnline(true);
 
-        String initial = res.getName().substring(0, 1).toUpperCase();
-        res.setAvatarText(initial);
-
-        String[] colors = {"bg-[#10b981]", "bg-[#f97316]", "bg-[#06b6d4]", "bg-[#8b5cf6]", "bg-[#ec4899]"};
-        int colorIdx = Math.abs(res.getName().hashCode()) % colors.length;
-        res.setAvatarBg(colors[colorIdx]);
 
         if (conv.getUnreadCounts() != null && currentUserId != null) {
             res.setUnreadCount(conv.getUnreadCounts().getOrDefault(currentUserId, 0));
@@ -68,6 +62,25 @@ public class ConversationResponse {
         if (res.getParticipantId() == null && conv.getParticipants() != null && !conv.getParticipants().isEmpty()) {
             res.setParticipantId(conv.getParticipants().get(0));
         }
+
+        // If 1-on-1 chat, show the other person's name
+        if (res.getParticipantId() != null && conv.getParticipantNames() != null && conv.getParticipantNames().containsKey(res.getParticipantId())) {
+            res.setName(conv.getParticipantNames().get(res.getParticipantId()));
+        } else if (conv.getName() != null) {
+            res.setName(conv.getName());
+        } else {
+            res.setName("Chat");
+        }
+
+        String initial = (res.getName() != null && !res.getName().trim().isEmpty())
+                ? res.getName().trim().substring(0, 1).toUpperCase()
+                : "U";
+        res.setAvatarText(initial);
+
+        String[] colors = {"bg-[#10b981]", "bg-[#f97316]", "bg-[#06b6d4]", "bg-[#8b5cf6]", "bg-[#ec4899]"};
+        int hash = (res.getName() != null) ? res.getName().hashCode() : 0;
+        int colorIdx = (hash & 0x7fffffff) % colors.length;
+        res.setAvatarBg(colors[colorIdx]);
 
         if (messages != null) {
             res.setMessages(messages.stream()

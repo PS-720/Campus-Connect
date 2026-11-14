@@ -64,3 +64,38 @@ export async function deletePost(postId) {
   const response = await apiClient.delete(`/posts/${postId}`);
   return response.data;
 }
+
+/**
+ * Upload a media file (photo, video, or attachment) for a post.
+ * @param {File} file
+ * @returns {Promise<{ url: string, filename: string, fileType: string, size: number }>}
+ */
+export async function uploadPostMedia(file) {
+  const formData = new FormData();
+  formData.append("file", file);
+  const response = await apiClient.post("/posts/upload", formData, {
+    headers: {
+      "Content-Type": "multipart/form-data",
+    },
+  });
+  return response.data;
+}
+
+/**
+ * Resolves a media URL whether it's absolute, data URL, blob URL, or relative backend path.
+ * @param {string} url
+ */
+export function resolveMediaUrl(url) {
+  if (!url) return "";
+  if (
+    url.startsWith("http://") ||
+    url.startsWith("https://") ||
+    url.startsWith("data:") ||
+    url.startsWith("blob:")
+  ) {
+    return url;
+  }
+  const base = import.meta.env.VITE_API_BASE_URL || "http://localhost:8080/api/v1";
+  const origin = base.replace(/\/api\/v1\/?$/, "");
+  return `${origin}${url.startsWith("/") ? "" : "/"}${url}`;
+}

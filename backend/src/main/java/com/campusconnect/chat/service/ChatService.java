@@ -3,6 +3,7 @@ package com.campusconnect.chat.service;
 import com.campusconnect.chat.dto.ConversationResponse;
 import com.campusconnect.chat.dto.MessageResponse;
 import com.campusconnect.chat.dto.SendMessageRequest;
+import com.campusconnect.common.exception.BadRequestException;
 import com.campusconnect.chat.model.ChatMessage;
 import com.campusconnect.chat.model.Conversation;
 import com.campusconnect.chat.repository.ChatMessageRepository;
@@ -34,95 +35,36 @@ public class ChatService {
 
     @PostConstruct
     public void init() {
-        if (conversationRepository.count() == 0) {
-            seedInitialConversations();
+        // Clean out any dummy/demo seed conversations so only real user chats exist
+        List<Conversation> all = conversationRepository.findAll();
+        for (Conversation c : all) {
+            boolean isDummy = c.getParticipants() == null
+                    || c.getParticipants().isEmpty()
+                    || c.getParticipants().contains("demo_user")
+                    || c.getParticipants().contains("sara_liu")
+                    || c.getParticipants().contains("marcus_j")
+                    || c.getParticipants().contains("coding_club")
+                    || c.getParticipants().contains("ai_robotics_group")
+                    || c.getParticipants().contains("dev_patel")
+                    || c.getParticipants().contains("priya_sharma");
+
+            if (isDummy) {
+                messageRepository.deleteByConversationId(c.getId());
+                conversationRepository.delete(c);
+            }
         }
-    }
-
-    private record SeedMsg(String sender, String text, int minsAgo) {}
-
-    private void seedInitialConversations() {
-        createSeedConversation("Priya Sharma", "priya_sharma", "Computer Science · 3rd Year",
-                List.of(
-                        new SeedMsg("priya_sharma", "Hey Alex! How is the project going?", 20),
-                        new SeedMsg("alex_chen", "Going great, just finishing up the events page!", 15),
-                        new SeedMsg("priya_sharma", "Did you see the hackathon announcement for next week?", 2)
-                ));
-
-        createSeedConversation("Coding Club", "coding_club", "1,247 members",
-                List.of(
-                        new SeedMsg("coding_club", "Reminder: Weekly open-source workshop is scheduled.", 60),
-                        new SeedMsg("coding_club", "Meeting tomorrow at 5 PM in Room 304!", 15)
-                ));
-
-        createSeedConversation("Dev Patel", "dev_patel", "Computer Science · 5th Sem",
-                List.of(
-                        new SeedMsg("dev_patel", "Hey, can you share your algorithms guide?", 120),
-                        new SeedMsg("alex_chen", "Sure thing, just uploaded it to the Notes section!", 80),
-                        new SeedMsg("dev_patel", "Thanks for the notes!", 60)
-                ));
-
-        createSeedConversation("AI & Robotics Study Group", "ai_robotics_group", "856 members",
-                List.of(
-                        new SeedMsg("ai_robotics_group", "Marcus: Check out this paper on vision-language models for robot control!", 120)
-                ));
-
-        createSeedConversation("Sara Liu", "sara_liu", "Computer Science · 6th Sem",
-                List.of(
-                        new SeedMsg("sara_liu", "Are you free for the study session before the exam?", 180)
-                ));
-
-        createSeedConversation("Marcus Johnson", "marcus_j", "Electrical Eng. · 2nd Year",
-                List.of(
-                        new SeedMsg("marcus_j", "The PR is ready for review whenever you have a chance.", 300)
-                ));
-    }
-
-    private void createSeedConversation(String name, String otherId, String subtitle, List<SeedMsg> seedMsgs) {
-        Conversation c = new Conversation();
-        c.setName(name);
-        c.setSubtitle(subtitle);
-        c.getParticipants().add("demo_user");
-        c.getParticipants().add(otherId);
-        c.getParticipantNames().put("demo_user", "Alex Chen");
-        c.getParticipantNames().put(otherId, name);
-
-        String lastMsg = "";
-        Instant lastTime = Instant.now();
-
-        Conversation saved = conversationRepository.save(c);
-
-        for (SeedMsg item : seedMsgs) {
-            String sender = item.sender();
-            String text = item.text();
-            int minsAgo = item.minsAgo();
-
-            ChatMessage m = new ChatMessage();
-            m.setConversationId(saved.getId());
-            m.setSenderId("alex_chen".equals(sender) ? "demo_user" : otherId);
-            m.setSenderName("alex_chen".equals(sender) ? "Alex Chen" : name);
-            m.setRecipientId("alex_chen".equals(sender) ? otherId : "demo_user");
-            m.setContent(text);
-            m.setCreatedAt(Instant.now().minus(minsAgo, ChronoUnit.MINUTES));
-            messageRepository.save(m);
-
-            lastMsg = text;
-            lastTime = m.getCreatedAt();
-        }
-
-        saved.setLastMessage(lastMsg);
-        saved.setLastMessageAt(lastTime);
-        conversationRepository.save(saved);
     }
 
     public List<ConversationResponse> listConversations(String currentUserId) {
-        String uid = (currentUserId != null) ? currentUserId : "demo_user";
-        List<Conversation> convs = conversationRepository.findAllByOrderByLastMessageAtDesc();
+        if (currentUserId == null) {
+            return Collections.emptyList();
+        }
 
+        List<Conversation> convs = conversationRepository.findByParticipantsContainingOrderByLastMessageAtDesc(currentUserId);
         List<ConversationResponse> result = new ArrayList<>();
         for (Conversation c : convs) {
             List<ChatMessage> msgs = messageRepository.findByConversationIdOrderByCreatedAtAsc(c.getId());
-            result.add(ConversationResponse.from(c, msgs, uid));
+            result.add(ConversationResponse.from(c, msgs, currentUserId));
         }
         return result;
     }
@@ -143,6 +85,49 @@ public class ChatService {
         return msgs.stream().map(m -> MessageResponse.from(m, uid)).collect(Collectors.toList());
     }
 
+    public ConversationResponse getOrCreateConversation(String currentUserId, String recipientId) {
+        if (currentUserId == null || currentUserId.trim().isEmpty()) {
+            throw new BadRequestException("User must be authenticated");
+        }
+        if (recipientId == null || recipientId.trim().isEmpty()) {
+            throw new BadRequestException("Recipient ID cannot be empty");
+        }
+
+        // Find existing conversation between currentUserId and recipientId
+        List<Conversation> userConvs = conversationRepository.findByParticipantsContainingOrderByLastMessageAtDesc(currentUserId);
+        for (Conversation c : userConvs) {
+            if (c.getParticipants() != null && c.getParticipants().contains(recipientId)) {
+                List<ChatMessage> msgs = messageRepository.findByConversationIdOrderByCreatedAtAsc(c.getId());
+                return ConversationResponse.from(c, msgs, currentUserId);
+            }
+        }
+
+        // Create new conversation
+        String senderName = "Student";
+        User sender = userRepository.findById(currentUserId).orElse(null);
+        if (sender != null && sender.getName() != null) {
+            senderName = sender.getName();
+        }
+
+        User recipient = userRepository.findById(recipientId).orElse(null);
+        String recipientName = (recipient != null && recipient.getName() != null) ? recipient.getName() : "Student";
+
+        Conversation conv = new Conversation();
+        conv.getParticipants().add(currentUserId);
+        conv.getParticipants().add(recipientId);
+        conv.getParticipantNames().put(currentUserId, senderName);
+        conv.getParticipantNames().put(recipientId, recipientName);
+        conv.setName(recipientName);
+        if (recipient != null && recipient.getDepartment() != null) {
+            conv.setSubtitle(recipient.getDepartment() + (recipient.getYearOfStudy() != null ? " · Year " + recipient.getYearOfStudy() : ""));
+        }
+        conv.setLastMessage("");
+        conv.setLastMessageAt(Instant.now());
+
+        Conversation saved = conversationRepository.save(conv);
+        return ConversationResponse.from(saved, Collections.emptyList(), currentUserId);
+    }
+
     public MessageResponse sendMessage(String currentUserId, SendMessageRequest req) {
         String senderId = (currentUserId != null) ? currentUserId : "demo_user";
         String senderName = "Alex Chen";
@@ -154,7 +139,10 @@ public class ChatService {
         }
 
         String recipientId = req.getRecipientId();
-        String content = req.getContent().trim();
+        if (recipientId == null || recipientId.trim().isEmpty()) {
+            throw new BadRequestException("Recipient ID cannot be empty");
+        }
+        String content = req.getContent() != null ? req.getContent().trim() : "";
 
         // Find or create conversation
         Conversation conv = null;
@@ -178,7 +166,16 @@ public class ChatService {
             conv.getParticipants().add(senderId);
             conv.getParticipants().add(recipientId);
             conv.getParticipantNames().put(senderId, senderName);
-            conv.setName(recipientId);
+
+            User recipientUser = userRepository.findById(recipientId).orElse(null);
+            String recName = recipientUser != null && recipientUser.getName() != null
+                    ? recipientUser.getName()
+                    : recipientId;
+            conv.getParticipantNames().put(recipientId, recName);
+            conv.setName(recName);
+            if (recipientUser != null && recipientUser.getDepartment() != null) {
+                conv.setSubtitle(recipientUser.getDepartment() + (recipientUser.getYearOfStudy() != null ? " · Year " + recipientUser.getYearOfStudy() : ""));
+            }
             conv = conversationRepository.save(conv);
         }
 

@@ -1,12 +1,28 @@
 import apiClient from "./apiClient";
 
 /**
+ * Normalize event from backend: Jackson serializes boolean `isRegistered()`
+ * as "registered" in JSON, but all frontend code expects `isRegistered`.
+ */
+function normalizeEvent(ev) {
+  if (!ev) return ev;
+  return {
+    ...ev,
+    // Map backend "registered" -> "isRegistered" used throughout the UI
+    isRegistered: ev.isRegistered !== undefined ? ev.isRegistered : ev.registered,
+  };
+}
+
+/**
  * Get all events (public).
  * @param {{ category?, status?, page?, size? }} params
  */
 export async function getEvents(params = {}) {
   const response = await apiClient.get("/events", { params });
-  return response.data;
+  // apiClient interceptor unwraps to ApiResponse body; response.data is the event array
+  const list = response?.data ?? response;
+  if (Array.isArray(list)) return list.map(normalizeEvent);
+  return list;
 }
 
 /**
@@ -14,7 +30,7 @@ export async function getEvents(params = {}) {
  */
 export async function getEvent(id) {
   const response = await apiClient.get(`/events/${id}`);
-  return response.data;
+  return normalizeEvent(response?.data ?? response);
 }
 
 /**
@@ -30,7 +46,7 @@ export async function createEvent(data) {
  */
 export async function registerForEvent(id) {
   const response = await apiClient.post(`/events/${id}/register`);
-  return response.data;
+  return normalizeEvent(response?.data ?? response);
 }
 
 /**
@@ -38,5 +54,5 @@ export async function registerForEvent(id) {
  */
 export async function unregisterFromEvent(id) {
   const response = await apiClient.delete(`/events/${id}/register`);
-  return response.data;
+  return normalizeEvent(response?.data ?? response);
 }

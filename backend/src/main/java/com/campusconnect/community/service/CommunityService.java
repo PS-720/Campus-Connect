@@ -4,10 +4,15 @@ import com.campusconnect.community.dto.CommunityResponse;
 import com.campusconnect.community.dto.CreateCommunityRequest;
 import com.campusconnect.community.model.Community;
 import com.campusconnect.community.repository.CommunityRepository;
+import com.campusconnect.user.repository.UserRepository;
+import jakarta.annotation.PostConstruct;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -15,9 +20,45 @@ import java.util.stream.Collectors;
 public class CommunityService {
 
     private final CommunityRepository communityRepository;
+    private final UserRepository userRepository;
 
-    public CommunityService(CommunityRepository communityRepository) {
+    public CommunityService(CommunityRepository communityRepository, UserRepository userRepository) {
         this.communityRepository = communityRepository;
+        this.userRepository = userRepository;
+    }
+
+    // ── Seeding ──────────────────────────────────────────────────────────────────
+
+    @PostConstruct
+    public void seedIfEmpty() {
+        if (communityRepository.count() > 0) return;
+
+        List<Community> seeds = new ArrayList<>();
+
+        seeds.add(buildCommunity("AI & Machine Learning", "Explore the frontiers of artificial intelligence, deep learning, and data science with fellow enthusiasts.", "Technology", List.of("AI", "ML", "Python", "Data Science"), 1240));
+        seeds.add(buildCommunity("Web Dev Hub", "From HTML to full-stack applications — share projects, resources, and code reviews for all web technologies.", "Technology", List.of("JavaScript", "React", "Node", "CSS"), 980));
+        seeds.add(buildCommunity("Campus Entrepreneurs", "Connect with aspiring founders, share startup ideas, attend pitch events, and find your co-founder.", "Business", List.of("Startup", "Business", "Innovation", "Networking"), 756));
+        seeds.add(buildCommunity("Photography Club", "A community for photographers of all skill levels. Share your shots, join photowalks, and get feedback.", "Arts", List.of("Photography", "Art", "Creative"), 512));
+        seeds.add(buildCommunity("Research & Academia", "Discuss papers, share research findings, collaborate on projects and navigate grad school together.", "Academic", List.of("Research", "Science", "Publications"), 430));
+        seeds.add(buildCommunity("Sports & Fitness", "Stay active together — organize games, share workout routines, and cheer for campus sports teams.", "Sports", List.of("Sports", "Fitness", "Health", "Cricket"), 890));
+
+        communityRepository.saveAll(seeds);
+    }
+
+    private Community buildCommunity(String name, String desc, String category, List<String> tags, int members) {
+        Community c = new Community();
+        c.setName(name);
+        c.setDescription(desc);
+        c.setCategory(category);
+        c.setTags(tags);
+        c.setMemberCount(members);
+        c.setPrivate(false);
+        c.setCreatedAt(Instant.now());
+        // Pre-seed mock member ids so count looks real
+        for (int i = 0; i < Math.min(members, 50); i++) {
+            c.getMembers().add("student_" + i);
+        }
+        return c;
     }
 
     // ── List ─────────────────────────────────────────────────────────────────────
@@ -60,6 +101,17 @@ public class CommunityService {
         c.getModerators().add(creatorId);
         c.setMemberCount(1);
         Community saved = communityRepository.save(c);
+
+        if (creatorId != null) {
+            userRepository.findById(creatorId).ifPresent(user -> {
+                if (user.getJoinedCommunities() == null) {
+                    user.setJoinedCommunities(new HashSet<>());
+                }
+                user.getJoinedCommunities().add(saved.getId());
+                userRepository.save(user);
+            });
+        }
+
         return CommunityResponse.from(saved, creatorId);
     }
 
@@ -81,6 +133,21 @@ public class CommunityService {
             c.setMemberCount(c.getMemberCount() + 1);
         }
         Community saved = communityRepository.save(c);
+
+        if (userId != null) {
+            userRepository.findById(userId).ifPresent(user -> {
+                if (user.getJoinedCommunities() == null) {
+                    user.setJoinedCommunities(new HashSet<>());
+                }
+                if (wasMember) {
+                    user.getJoinedCommunities().remove(communityId);
+                } else {
+                    user.getJoinedCommunities().add(communityId);
+                }
+                userRepository.save(user);
+            });
+        }
+
         return CommunityResponse.from(saved, userId);
     }
 

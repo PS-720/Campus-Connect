@@ -5,7 +5,16 @@ import apiClient from "./apiClient";
  */
 export async function getConversations() {
   const response = await apiClient.get("/messages/conversations");
-  return response.data;
+  return response?.data ?? response;
+}
+
+/**
+ * Start or get a 1-on-1 conversation with a user.
+ * @param {string} recipientId
+ */
+export async function startConversation(recipientId) {
+  const response = await apiClient.post("/messages/conversations", { recipientId });
+  return response?.data ?? response;
 }
 
 /**

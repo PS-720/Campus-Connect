@@ -31,6 +31,16 @@ public class MessageController {
         return ResponseEntity.ok(ApiResponse.success("Conversations retrieved successfully", convs));
     }
 
+    @PostMapping("/conversations")
+    public ResponseEntity<ApiResponse<ConversationResponse>> startConversation(
+            @AuthenticationPrincipal UserPrincipal currentUser,
+            @RequestBody java.util.Map<String, String> body) {
+        String currentUserId = currentUser != null ? currentUser.getId() : null;
+        String recipientId = body != null ? body.get("recipientId") : null;
+        ConversationResponse conv = chatService.getOrCreateConversation(currentUserId, recipientId);
+        return ResponseEntity.ok(ApiResponse.success("Conversation ready", conv));
+    }
+
     @GetMapping("/{userId}")
     public ResponseEntity<ApiResponse<List<MessageResponse>>> getMessages(
             @PathVariable String userId,

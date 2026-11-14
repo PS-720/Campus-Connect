@@ -44,6 +44,15 @@ public class UserController {
         return ResponseEntity.ok(ApiResponse.success("Password changed successfully", null));
     }
 
+    @GetMapping("/search")
+    public ResponseEntity<ApiResponse<java.util.List<UserProfileResponse>>> searchUsers(
+            @RequestParam(required = false) String query,
+            @AuthenticationPrincipal UserPrincipal currentUser) {
+        String currentUserId = currentUser != null ? currentUser.getId() : null;
+        java.util.List<UserProfileResponse> users = userService.searchUsers(query, currentUserId);
+        return ResponseEntity.ok(ApiResponse.success("Users retrieved successfully", users));
+    }
+
     @GetMapping("/{id}")
     public ResponseEntity<ApiResponse<UserProfileResponse>> getUserProfile(
             @PathVariable String id) {

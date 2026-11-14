@@ -62,3 +62,13 @@ export async function getBookmarkedNotes() {
   const response = await apiClient.get("/users/me/bookmarks");
   return response.data;
 }
+
+/**
+ * Search students/users on campus.
+ * @param {string} [query]
+ */
+export async function searchUsers(query = "") {
+  const params = query ? { query } : {};
+  const response = await apiClient.get("/users/search", { params });
+  return response?.data ?? response;
+}

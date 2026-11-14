@@ -60,8 +60,8 @@ const HomePage = ({ onNavigateTab, currentUser }) => {
 					user={
 						currentUser
 							? {
-									name: currentUser.fullName || currentUser.username || "You",
-									avatar: (currentUser.fullName || currentUser.username || "U")[0].toUpperCase(),
+									name: currentUser.name || currentUser.fullName || currentUser.username || "You",
+									avatar: (currentUser.name || currentUser.fullName || currentUser.username || "U")[0].toUpperCase(),
 							  }
 							: { name: "Campus Connect", avatar: "C" }
 					}

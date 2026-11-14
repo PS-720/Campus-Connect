@@ -42,6 +42,19 @@ function App() {
 		setActiveTab(tab);
 	}, []);
 
+	const handleUserUpdated = useCallback((updatedUser) => {
+		setCurrentUser((prev) => ({ ...prev, ...updatedUser }));
+		try {
+			const raw = localStorage.getItem("cc_user");
+			if (raw) {
+				const parsed = JSON.parse(raw);
+				localStorage.setItem("cc_user", JSON.stringify({ ...parsed, ...updatedUser }));
+			}
+		} catch (e) {
+			console.error("Failed to sync updated user in localStorage:", e);
+		}
+	}, []);
+
 	// ── Auth guard ───────────────────────────────────────────────────────────────
 	if (!currentUser) {
 		if (authView === "register") {
@@ -60,21 +73,13 @@ function App() {
 		);
 	}
 
-	const handleUserUpdated = useCallback((updatedUser) => {
-		setCurrentUser((prev) => ({ ...prev, ...updatedUser }));
-		try {
-			const raw = localStorage.getItem("cc_user");
-			if (raw) {
-				const parsed = JSON.parse(raw);
-				localStorage.setItem("cc_user", JSON.stringify({ ...parsed, ...updatedUser }));
-			}
-		} catch (e) {
-			console.error("Failed to sync updated user in localStorage:", e);
-		}
-	}, []);
-
 	// ── Authenticated routes ─────────────────────────────────────────────────────
-	const pageProps = { onNavigateTab: handleNavigateTab, currentUser, onUserUpdated: handleUserUpdated };
+	const pageProps = {
+		onNavigateTab: handleNavigateTab,
+		currentUser,
+		onUserUpdated: handleUserUpdated,
+		onLogout: handleLogout,
+	};
 
 	if (activeTab === "Communities") return <CommunitiesPage {...pageProps} />;
 	if (activeTab === "Notes") return <NotesPage {...pageProps} />;

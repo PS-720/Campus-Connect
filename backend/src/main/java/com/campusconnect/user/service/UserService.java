@@ -77,4 +77,18 @@ public class UserService {
                 .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + userId));
         return UserProfileResponse.fromUser(user);
     }
+
+    public java.util.List<UserProfileResponse> searchUsers(String query, String currentUserId) {
+        java.util.List<User> users = userRepository.findAll();
+        String q = (query != null) ? query.trim().toLowerCase() : "";
+        return users.stream()
+                .filter(u -> currentUserId == null || !u.getId().equals(currentUserId))
+                .filter(u -> q.isEmpty()
+                        || (u.getName() != null && u.getName().toLowerCase().contains(q))
+                        || (u.getEmail() != null && u.getEmail().toLowerCase().contains(q))
+                        || (u.getDepartment() != null && u.getDepartment().toLowerCase().contains(q)))
+                .limit(50)
+                .map(UserProfileResponse::fromUser)
+                .toList();
+    }
 }

@@ -5,6 +5,7 @@ import com.campusconnect.event.dto.CreateEventRequest;
 import com.campusconnect.event.dto.EventResponse;
 import com.campusconnect.event.model.Event;
 import com.campusconnect.event.repository.EventRepository;
+import com.campusconnect.user.repository.UserRepository;
 import jakarta.annotation.PostConstruct;
 import org.springframework.stereotype.Service;
 
@@ -19,9 +20,11 @@ import java.util.stream.Collectors;
 public class EventService {
 
     private final EventRepository eventRepository;
+    private final UserRepository userRepository;
 
-    public EventService(EventRepository eventRepository) {
+    public EventService(EventRepository eventRepository, UserRepository userRepository) {
         this.eventRepository = eventRepository;
+        this.userRepository = userRepository;
     }
 
     @PostConstruct
@@ -185,6 +188,17 @@ public class EventService {
         }
 
         Event saved = eventRepository.save(event);
+
+        if (userId != null) {
+            userRepository.findById(userId).ifPresent(user -> {
+                if (user.getRegisteredEvents() == null) {
+                    user.setRegisteredEvents(new HashSet<>());
+                }
+                user.getRegisteredEvents().add(saved.getId());
+                userRepository.save(user);
+            });
+        }
+
         return EventResponse.from(saved, userId);
     }
 
@@ -197,6 +211,17 @@ public class EventService {
         }
         event.getRegisteredUsers().add(userId);
         Event saved = eventRepository.save(event);
+
+        if (userId != null) {
+            userRepository.findById(userId).ifPresent(user -> {
+                if (user.getRegisteredEvents() == null) {
+                    user.setRegisteredEvents(new HashSet<>());
+                }
+                user.getRegisteredEvents().add(eventId);
+                userRepository.save(user);
+            });
+        }
+
         return EventResponse.from(saved, userId);
     }
 
@@ -208,6 +233,16 @@ public class EventService {
             event.getRegisteredUsers().remove(userId);
         }
         Event saved = eventRepository.save(event);
+
+        if (userId != null) {
+            userRepository.findById(userId).ifPresent(user -> {
+                if (user.getRegisteredEvents() != null) {
+                    user.getRegisteredEvents().remove(eventId);
+                    userRepository.save(user);
+                }
+            });
+        }
+
         return EventResponse.from(saved, userId);
     }
 

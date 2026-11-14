@@ -8,12 +8,20 @@ import com.campusconnect.post.dto.PostResponse;
 import com.campusconnect.post.service.PostService;
 import com.campusconnect.security.UserPrincipal;
 import jakarta.validation.Valid;
+import org.springframework.core.io.Resource;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/v1/posts")
@@ -83,6 +91,31 @@ public class PostController {
         CommentResponse comment = postService.addComment(id, currentUser.getId(), request);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success("Comment added successfully", comment));
+    }
+
+    @PostMapping("/upload")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> uploadMedia(
+            @RequestParam("file") MultipartFile file) {
+        Map<String, Object> result = postService.uploadFile(file);
+        return ResponseEntity.ok(ApiResponse.success("Media uploaded successfully", result));
+    }
+
+    @GetMapping("/media/{filename:.+}")
+    public ResponseEntity<Resource> getMedia(@PathVariable String filename) {
+        Resource resource = postService.loadMedia(filename);
+        MediaType mediaType = MediaType.APPLICATION_OCTET_STREAM;
+        try {
+            Path path = Paths.get("uploads", "posts", filename);
+            String probeType = Files.probeContentType(path);
+            if (probeType != null) {
+                mediaType = MediaType.parseMediaType(probeType);
+            }
+        } catch (Exception ignored) {
+        }
+        return ResponseEntity.ok()
+                .contentType(mediaType)
+                .header(HttpHeaders.CACHE_CONTROL, "max-age=86400")
+                .body(resource);
     }
 
     @DeleteMapping("/{id}")

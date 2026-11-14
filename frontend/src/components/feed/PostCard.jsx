@@ -1,5 +1,11 @@
 import React, { useState, useEffect } from "react";
-import { toggleLike, toggleBookmark, getComments, addComment } from "../../services/postService";
+import {
+	toggleLike,
+	toggleBookmark,
+	getComments,
+	addComment,
+	resolveMediaUrl,
+} from "../../services/postService";
 
 // Helper to pick a deterministic avatar colour from an author name
 const AVATAR_COLORS = [
@@ -14,6 +20,26 @@ function avatarColor(name = "") {
 	let h = 0;
 	for (let i = 0; i < name.length; i++) h += name.charCodeAt(i);
 	return AVATAR_COLORS[h % AVATAR_COLORS.length];
+}
+
+function getMediaInfo(rawUrl) {
+	const url = resolveMediaUrl(rawUrl);
+	const clean = url.split("?")[0].toLowerCase();
+	let type = "image";
+	if (clean.match(/\.(mp4|webm|ogg|mov|mkv)$/i)) {
+		type = "video";
+	} else if (
+		clean.match(/\.(pdf|doc|docx|ppt|pptx|xls|xlsx|txt|zip|tar|gz)$/i)
+	) {
+		type = "file";
+	}
+
+	let name = rawUrl.substring(rawUrl.lastIndexOf("/") + 1);
+	const underscoreIdx = name.indexOf("_");
+	if (underscoreIdx > 10 && underscoreIdx < 45) {
+		name = name.substring(underscoreIdx + 1);
+	}
+	return { url, type, name: decodeURIComponent(name || "attachment") };
 }
 
 const PostCard = ({ post, currentUser, onPostUpdated }) => {
@@ -120,6 +146,14 @@ const PostCard = ({ post, currentUser, onPostUpdated }) => {
 	const year = post.author?.year || post.authorYear || "";
 	const timeAgo = post.time || post.createdAt || "";
 
+	const rawMediaUrls =
+		post.mediaUrls && post.mediaUrls.length > 0
+			? post.mediaUrls
+			: post.image
+			? [post.image]
+			: [];
+	const mediaList = rawMediaUrls.map(getMediaInfo);
+
 	return (
 		<article className="w-full bg-[#0d0f15] border border-[#1b1e2a] rounded-2xl p-5 shadow-sm transition-colors">
 			{/* Author Header */}
@@ -189,14 +223,77 @@ const PostCard = ({ post, currentUser, onPostUpdated }) => {
 				{post.content}
 			</p>
 
-			{/* Attached Media Image */}
-			{post.image && (
-				<div className="mt-4 rounded-xl overflow-hidden border border-[#1e202e] bg-[#07080b]">
-					<img
-						src={post.image}
-						alt="Post attachment"
-						className="w-full max-h-[380px] object-cover object-center"
-					/>
+			{/* Attached Media List */}
+			{mediaList.length > 0 && (
+				<div className="mt-4 space-y-3">
+					{mediaList.map((media, idx) => {
+						if (media.type === "video") {
+							return (
+								<div
+									key={idx}
+									className="rounded-xl overflow-hidden border border-[#1e202e] bg-[#07080b]">
+									<video
+										src={media.url}
+										controls
+										playsInline
+										preload="metadata"
+										className="w-full max-h-[440px] bg-black object-contain"
+									/>
+								</div>
+							);
+						}
+
+						if (media.type === "file") {
+							return (
+								<a
+									key={idx}
+									href={media.url}
+									target="_blank"
+									rel="noopener noreferrer"
+									download
+									className="flex items-center justify-between p-3.5 rounded-xl border border-[#232638] bg-[#12141e] hover:bg-[#181a28] hover:border-[#383b54] transition-all group cursor-pointer">
+									<div className="flex items-center gap-3 min-w-0">
+										<div className="w-10 h-10 rounded-lg bg-[#1f2233] flex items-center justify-center text-[#93c5fd] shrink-0 group-hover:scale-105 transition-transform">
+											<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+												<path
+													strokeLinecap="round"
+													strokeLinejoin="round"
+													strokeWidth={1.8}
+													d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"
+												/>
+											</svg>
+										</div>
+										<div className="min-w-0">
+											<p className="text-xs font-semibold text-white truncate">
+												{media.name}
+											</p>
+											<p className="text-[11px] text-[#71748d]">
+												Click to view or download file
+											</p>
+										</div>
+									</div>
+									<div className="text-xs font-medium text-[#818cf8] px-2.5 py-1 rounded-md bg-[#241747] border border-[#3b2b68] shrink-0">
+										Download
+									</div>
+								</a>
+							);
+						}
+
+						// Image default
+						return (
+							<div
+								key={idx}
+								className="rounded-xl overflow-hidden border border-[#1e202e] bg-[#07080b]">
+								<img
+									src={media.url}
+									alt="Post attachment"
+									loading="lazy"
+									className="w-full max-h-[440px] object-cover object-center cursor-pointer hover:opacity-95 transition-opacity"
+									onClick={() => window.open(media.url, "_blank")}
+								/>
+							</div>
+						);
+					})}
 				</div>
 			)}
 

@@ -1,13 +1,32 @@
 import apiClient from "./apiClient";
 
 /**
+ * Normalize community from backend:
+ * Jackson serializes boolean getters isMember() -> "member", isPrivate() -> "private".
+ * The frontend always uses isMember / isJoined / isPrivate naming.
+ */
+function normalizeCommunity(c) {
+  if (!c) return c;
+  return {
+    ...c,
+    isMember: c.isMember !== undefined ? c.isMember : c.member,
+    isPrivate: c.isPrivate !== undefined ? c.isPrivate : c.private,
+    isModerator: c.isModerator !== undefined ? c.isModerator : c.moderator,
+  };
+}
+
+/**
  * Fetch all communities, optionally filtered by category.
  * @param {string} [category] - e.g. "Technology". Omit or pass "All" for all.
  */
 export async function getCommunities(category) {
   const params = category && category !== "All" ? { category } : {};
   const response = await apiClient.get("/communities", { params });
-  return response.data;
+  // Community controller returns bare List<CommunityResponse> (no ApiResponse wrapper)
+  // apiClient interceptor returns response.data = the array directly
+  const list = Array.isArray(response) ? response : (response?.data ?? response);
+  if (Array.isArray(list)) return list.map(normalizeCommunity);
+  return list;
 }
 
 /**
@@ -16,7 +35,7 @@ export async function getCommunities(category) {
  */
 export async function getCommunityById(id) {
   const response = await apiClient.get(`/communities/${id}`);
-  return response.data;
+  return normalizeCommunity(Array.isArray(response) ? response : (response?.data ?? response));
 }
 
 /**
@@ -25,7 +44,7 @@ export async function getCommunityById(id) {
  */
 export async function createCommunity(data) {
   const response = await apiClient.post("/communities", data);
-  return response.data;
+  return normalizeCommunity(Array.isArray(response) ? response : (response?.data ?? response));
 }
 
 /**
@@ -34,7 +53,7 @@ export async function createCommunity(data) {
  */
 export async function toggleJoin(communityId) {
   const response = await apiClient.post(`/communities/${communityId}/join`);
-  return response.data;
+  return normalizeCommunity(Array.isArray(response) ? response : (response?.data ?? response));
 }
 
 /**
